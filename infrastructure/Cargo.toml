@@ -1,0 +1,26 @@
+[package]
+name = "infrastructure"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shared = {path = "../shared"}
+domain = {path = "../domain"}
+
+tokio = { version = "1.48.0" , features = ["full"]} # 异步运行时
+anyhow = "1.0.100" # 便捷错误处理的库
+async-trait = "0.1.81" # 异步 trait 支持
+ignore = "0.4.23" # 高效目录遍历
+sea-orm = { version = "2.0.0-rc.13", features = [
+    "with-chrono",      # 启用 chrono 时间日期库支持：允许在实体中使用 chrono::DateTime 等类型
+    "debug-print",      # 启用调试打印功能：为各种 SeaORM 类型实现 Debug trait，方便调试
+    "sqlx-sqlite",
+    "with-json",        # 启用 JSON 支持：允许在数据库列中存储和查询 JSON 数据
+    "runtime-tokio"     # 使用 Tokio 运行时：SeaORM 需要异步运行时，这里选择 Tokio
+] }
+tracing = {version = "0.1.41", features = ["async-await"]} # 内部有一层抽象，把各种级别的日志变为事件
+tracing-subscriber = {version = "0.3.20", features = ["env-filter", "chrono"] } # 定义事件，处理事件
+num_cpus = "1.17.0" #用于获取系统的 CPU 核心数量信息
+bcrypt = "0.17.1"
+jsonwebtoken = { version = "10.1.0", features = ["rust_crypto"] }
+chrono = "0.4.42"

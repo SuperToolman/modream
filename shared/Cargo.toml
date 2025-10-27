@@ -1,0 +1,12 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.48.0" , features = ["full"]} # 异步运行时
+tracing = {version = "0.1.41", features = ["async-await"]} # 内部有一层抽象，把各种级别的日志变为事件
+tracing-subscriber = {version = "0.3.20", features = ["env-filter", "chrono"] } # 定义事件，处理事件
+config = {version = "0.15.18", features = ["yaml"]} # config trait，使用的yaml类型的配置文件
+serde = {version = "1.0.228", features = ["derive"]} # 反序列化yaml配置
+anyhow = "1.0.100" # 便捷错误处理的库

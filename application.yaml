@@ -1,0 +1,45 @@
+server:
+  port: 8080
+  api_url: http://localhost:8080
+  image:
+    supported_formats: # 支持的图片格式
+      - jpg
+      - jpeg
+      - png
+      - gif
+      - bmp
+      - webp
+      - tiff
+    thumbnail: # 缩略图配置
+      default_width: 200 # 缩略图默认宽度（像素）
+      default_height: 300 # 缩略图默认高度（像素）
+      default_quality: 85 # 缩略图默认质量（0-100）
+    streaming: # 流式传输配置
+      buffer_size: 65536 # 流式传输缓冲区大小（字节），默认 64KB
+      enabled: true # 是否启用流式传输
+    mime_types: # MIME 类型配置
+      types:
+        jpg: image/jpeg
+        jpeg: image/jpeg
+        png: image/png
+        gif: image/gif
+        bmp: image/bmp
+        webp: image/webp
+        tiff: image/tiff
+        tif: image/tiff
+        svg: image/svg+xml
+        ico: image/x-icon
+    cache: # 缓存策略配置
+      image_max_age: 2592000 # 图片缓存：30 天
+      video_max_age: 2592000 # 视频缓存：30 天
+      api_no_cache: true # API 数据：不缓存
+      html_no_cache: true # HTML：不缓存
+      static_max_age: 31536000 # CSS/JS：1 年
+database:
+  host: 127.0.0.1
+  port: 5433
+  user: admin
+  password: 123
+  database: mysql
+  schema: public
+  sqlite_database_url: sqlite://data/my_app.db?mode=rwc

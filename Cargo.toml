@@ -1,0 +1,11 @@
+[workspace]
+members = [
+   "application",
+   "domain",
+   "infrastructure",
+   "interfaces",
+   "shared",
+   "tauri-app/src-tauri", # 添加 Tauri 后端，路径为 tauri-app/src-tauri
+]
+
+resolver = "3"

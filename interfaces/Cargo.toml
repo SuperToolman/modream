@@ -1,0 +1,39 @@
+[package]
+name = "interfaces"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "interfaces"
+path = "src/lib.rs"
+
+[dependencies]
+domain = {path="../domain"}
+shared = {path="../shared"}
+infrastructure = {path = "../infrastructure"}
+
+anyhow = "1.0.100" # 便捷错误处理的库
+axum={ version = "0.8.6", features = ["macros"]} #web框架
+tokio = { version = "1.48.0" , features = ["full"]} # 异步运行时
+tracing = {version = "0.1.41", features = ["async-await"]} # 内部有一层抽象，把各种级别的日志变为事件
+tracing-subscriber = {version = "0.3.20", features = ["env-filter", "chrono"] } # 定义事件，处理事件
+sea-orm = { version = "2.0.0-rc.13", features = [
+    "with-chrono",      # 启用 chrono 时间日期库支持：允许在实体中使用 chrono::DateTime 等类型
+    "debug-print",      # 启用调试打印功能：为各种 SeaORM 类型实现 Debug trait，方便调试
+    "sqlx-sqlite",
+    "with-json",        # 启用 JSON 支持：允许在数据库列中存储和查询 JSON 数据
+    "runtime-tokio"     # 使用 Tokio 运行时：SeaORM 需要异步运行时，这里选择 Tokio
+] }
+thiserror = "2.0.17"
+serde = { version = "1.0.228", features = ["derive"] }
+validator = "0.20.0"
+application = { version = "0.1.0", path = "../application" }
+serde_json = "1.0.145"
+utoipa = { version = "5.4.0", features = ["axum_extras", "debug"] } # openapi
+utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] } # openapi 文档
+utoipa-axum = { version = "0.2.0", features = ["debug"] }
+bcrypt = "0.17.1" # 密码哈希
+tower-http = { version = "0.6.6", features = ["cors"] }
+tokio-util = { version = "0.7", features = ["io"] } # 流式 IO 工具
+image = "0.24" # 图片处理库
+
