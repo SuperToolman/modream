@@ -49,3 +49,9 @@ export interface MangaImagesResponse {
   is_write_log: boolean;
 }
 
+// 优化的图片列表响应（后端返回格式）
+export interface OptimizedImageListResponse {
+  count: number;
+  url_template: string;
+}
+

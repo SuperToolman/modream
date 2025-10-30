@@ -64,6 +64,7 @@ export const CreateLocalLibraryRequestSchema = z.object({
   source: z.literal('local'),
   type: LibraryTypeEnum,
   paths_json: z.string().min(1, '至少需要选择一个文件夹'),
+  config: z.record(z.any()).optional().describe('类型特定的配置（JSON 对象）'),
 });
 
 export type CreateLocalLibraryRequest = z.infer<typeof CreateLocalLibraryRequestSchema>;
@@ -80,6 +81,7 @@ export const CreateWebDAVLibraryRequestSchema = z.object({
   username: z.string().min(1, '用户名不能为空'),
   password: z.string().min(1, '密码不能为空'),
   path: z.string().optional().describe('WebDAV 路径'),
+  config: z.record(z.any()).optional().describe('类型特定的配置（JSON 对象）'),
 });
 
 export type CreateWebDAVLibraryRequest = z.infer<typeof CreateWebDAVLibraryRequestSchema>;

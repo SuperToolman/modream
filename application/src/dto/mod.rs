@@ -6,11 +6,15 @@ pub mod auth;
 pub mod user;
 pub mod media_library;
 pub mod manga;
+pub mod game;
 pub mod common;
+pub mod config;
 
 // 重新导出常用的 DTO
 pub use auth::{LoginRequest, LoginResponse};
 pub use user::{RegisterRequest, UserInfo};
 pub use media_library::{CreateMediaLibraryRequest, MediaLibraryInfo};
 pub use manga::{CreateMangaRequest, MangaInfo, PagedResponse};
+pub use game::{CreateGameRequest, GameInfo};
 pub use common::PaginationQuery;
+pub use config::{GameboxConfigResponse, UpdateGameboxConfigRequest};

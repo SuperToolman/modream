@@ -25,6 +25,8 @@ pub struct Model {
     pub item_count: i32,
     #[sea_orm(column_name = "Cover", column_type = "Text", nullable)]
     pub cover: Option<String>,
+    #[sea_orm(column_name = "ConfigJson", column_type = "Text")]
+    pub config_json: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -88,6 +90,7 @@ impl Model {
             update_time: now.clone(),
             last_scanned: now,
             cover: None,
+            config_json: "{}".to_string(), // 默认空 JSON 对象
         })
     }
 
@@ -201,5 +204,44 @@ impl Model {
         self.cover.clone().unwrap_or_else(|| {
             format!("/api/media-library/{}/cover", self.id)
         })
+    }
+
+    /// 更新配置 JSON
+    ///
+    /// # 参数
+    /// - `config_json`: 新的配置 JSON 字符串
+    ///
+    /// # 业务规则
+    /// - 必须是有效的 JSON 格式
+    pub fn update_config(&mut self, config_json: String) -> anyhow::Result<()> {
+        // 验证 JSON 格式
+        serde_json::from_str::<serde_json::Value>(&config_json)
+            .map_err(|e| anyhow::anyhow!("无效的 JSON 格式: {}", e))?;
+
+        self.config_json = config_json;
+        self.update_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        Ok(())
+    }
+
+    /// 获取配置对象
+    ///
+    /// # 返回
+    /// - `anyhow::Result<serde_json::Value>` - 配置 JSON 对象
+    pub fn get_config(&self) -> anyhow::Result<serde_json::Value> {
+        serde_json::from_str(&self.config_json)
+            .map_err(|e| anyhow::anyhow!("解析配置 JSON 失败: {}", e))
+    }
+
+    /// 获取配置中的特定字段
+    ///
+    /// # 参数
+    /// - `key`: 配置键名
+    ///
+    /// # 返回
+    /// - `Option<String>` - 配置值（如果存在）
+    pub fn get_config_value(&self, key: &str) -> Option<String> {
+        self.get_config()
+            .ok()
+            .and_then(|config| config.get(key).and_then(|v| v.as_str().map(String::from)))
     }
 }

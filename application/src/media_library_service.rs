@@ -1,4 +1,4 @@
-use domain::repository::{MediaLibraryRepository, MangaRepository};
+use domain::repository::{MediaLibraryRepository, MangaRepository, GameRepository};
 use infrastructure::file_scanner;
 use std::sync::Arc;
 use crate::dto::CreateMediaLibraryRequest;
@@ -7,6 +7,7 @@ use crate::dto::CreateMediaLibraryRequest;
 pub struct MediaLibraryService {
     media_library_repo: Arc<dyn MediaLibraryRepository>,
     manga_repo: Arc<dyn MangaRepository>,
+    game_repo: Arc<dyn GameRepository>,
 }
 
 impl MediaLibraryService {
@@ -14,10 +15,12 @@ impl MediaLibraryService {
     pub fn new(
         media_library_repo: Arc<dyn MediaLibraryRepository>,
         manga_repo: Arc<dyn MangaRepository>,
+        game_repo: Arc<dyn GameRepository>,
     ) -> Self {
         Self {
             media_library_repo,
             manga_repo,
+            game_repo,
         }
     }
 
@@ -29,6 +32,50 @@ impl MediaLibraryService {
     /// 查询所有媒体库
     pub async fn query_all_media_libraries(&self) -> anyhow::Result<Vec<domain::entity::media_library::Model>> {
         self.media_library_repo.find_all().await
+    }
+
+    /// 删除媒体库
+    ///
+    /// # 业务规则
+    /// - 删除媒体库时，必须先删除所有关联的游戏和漫画
+    /// - 使用事务确保数据一致性
+    ///
+    /// # 参数
+    /// - `id`: 媒体库 ID
+    ///
+    /// # 返回
+    /// - `anyhow::Result<()>` - 删除成功或失败
+    pub async fn delete(&self, id: i32) -> anyhow::Result<()> {
+        // 1. 检查媒体库是否存在
+        let media_library = self.media_library_repo.find_by_id(id).await?
+            .ok_or_else(|| anyhow::anyhow!("Media library with id {} not found", id))?;
+
+        tracing::info!("Deleting media library: id={}, title={}", id, media_library.title);
+
+        // 2. 删除所有关联的游戏
+        let games = self.game_repo.find_by_media_library_id(id).await?;
+        if !games.is_empty() {
+            tracing::info!("Deleting {} games associated with media library {}", games.len(), id);
+            for game in games {
+                self.game_repo.delete(game.id).await?;
+            }
+        }
+
+        // 3. 删除所有关联的漫画
+        let mangas = self.manga_repo.find_by_media_library_id(id).await?;
+        if !mangas.is_empty() {
+            tracing::info!("Deleting {} mangas associated with media library {}", mangas.len(), id);
+            for manga in mangas {
+                self.manga_repo.delete(manga.id).await?;
+            }
+        }
+
+        // 4. 删除媒体库本身
+        self.media_library_repo.delete(id).await?;
+
+        tracing::info!("Successfully deleted media library {} and all associated resources", id);
+
+        Ok(())
     }
 
     /// 创建新媒体库
@@ -46,24 +93,50 @@ impl MediaLibraryService {
             req.media_type.clone(),
         )?;
 
-        // 如果是漫画类型，扫描并添加漫画
+        // 设置配置 JSON
+        if let Some(config) = req.config {
+            let config_json = serde_json::to_string(&config)?;
+            aggregate.media_library.update_config(config_json)?;
+        }
+
+        // 如果是可扫描类型，扫描并添加相应的媒体
         if aggregate.is_scannable() {
-            // 扫描漫画文件夹
-            let manga_folders = self.scan_manga_folders(&req.paths_json).await?;
+            match req.media_type.as_str() {
+                "漫画" => {
+                    // 扫描漫画文件夹
+                    let manga_folders = self.scan_manga_folders(&req.paths_json).await?;
 
-            // 准备漫画数据（添加字节大小）
-            let manga_folders_with_size: Vec<(String, i32, i32)> = manga_folders
-                .into_iter()
-                .map(|(folder_path, page_count)| {
-                    // ✅ 使用领域服务计算文件夹大小
-                    let byte_size = domain::service::MangaDomainService::calculate_folder_byte_size(&folder_path);
-                    (folder_path, page_count, byte_size)
-                })
-                .collect();
+                    // 准备漫画数据（添加字节大小）
+                    let manga_folders_with_size: Vec<(String, i32, i32)> = manga_folders
+                        .into_iter()
+                        .map(|(folder_path, page_count)| {
+                            // ✅ 使用领域服务计算文件夹大小
+                            let byte_size = domain::service::MangaDomainService::calculate_folder_byte_size(&folder_path);
+                            (folder_path, page_count, byte_size)
+                        })
+                        .collect();
 
-            // ✅ 通过聚合根批量添加漫画（保证一致性边界）
-            let added_count = aggregate.add_mangas_batch(manga_folders_with_size)?;
-            tracing::info!("Added {} mangas to media library", added_count);
+                    // ✅ 通过聚合根批量添加漫画（保证一致性边界）
+                    let added_count = aggregate.add_mangas_batch(manga_folders_with_size)?;
+                    tracing::info!("Added {} mangas to media library", added_count);
+                }
+                "游戏" => {
+                    // 从配置中提取游戏提供者
+                    let game_providers = self.extract_game_providers(&aggregate.media_library.config_json)?;
+
+                    // 扫描游戏文件夹
+                    let game_infos = self.scan_game_folders_raw(&req.paths_json, &game_providers).await?;
+
+                    tracing::info!("Scanned {} games from gamebox", game_infos.len());
+
+                    // ✅ 使用新方法：直接从 GameInfo 转换并添加到聚合根（保留完整元数据）
+                    let added_count = aggregate.add_games_from_game_info_batch(game_infos)?;
+                    tracing::info!("Added {} games to media library with full metadata", added_count);
+                }
+                _ => {
+                    tracing::warn!("Media type {} is scannable but not implemented", req.media_type);
+                }
+            }
         }
 
         // 更新最后扫描时间
@@ -85,6 +158,20 @@ impl MediaLibraryService {
 
             // 批量更新漫画封面为 API URL
             self.update_manga_covers_to_api_urls(created_mangas).await?;
+        }
+
+        // 批量创建游戏
+        if !aggregate.games.is_empty() {
+            // 更新游戏的 media_library_id（因为数据库生成了 ID）
+            let mut games = aggregate.games;
+            for game in &mut games {
+                game.media_library_id = media_library.id;
+            }
+
+            tracing::info!("Creating {} games for media library {}", games.len(), media_library.id);
+
+            // 批量插入游戏（保留 gamebox 返回的真实封面 URL）
+            self.game_repo.create_batch(games).await?;
         }
 
         Ok(media_library)
@@ -197,6 +284,104 @@ impl MediaLibraryService {
 
         tracing::info!("Total valid manga folders found: {}", valid_folders.len());
         Ok(valid_folders)
+    }
+
+    /// 从配置 JSON 中提取游戏提供者列表
+    ///
+    /// # 参数
+    /// - `config_json`: 配置 JSON 字符串
+    ///
+    /// # 返回
+    /// - `anyhow::Result<String>` - 游戏提供者列表（如 "IGDB,DLSITE,STEAMDB"）
+    ///
+    /// # 默认值
+    /// - 如果配置中没有 gameProviders，返回默认值 "DLSITE"
+    fn extract_game_providers(&self, config_json: &str) -> anyhow::Result<String> {
+        if config_json.is_empty() || config_json == "{}" {
+            tracing::warn!("No game providers configured, using default: DLSITE");
+            return Ok("DLSITE".to_string());
+        }
+
+        let config: serde_json::Value = serde_json::from_str(config_json)
+            .map_err(|e| anyhow::anyhow!("Failed to parse config JSON: {}", e))?;
+
+        let providers = config
+            .get("gameProviders")
+            .and_then(|v| v.as_str())
+            .unwrap_or("DLSITE");
+
+        tracing::info!("Extracted game providers: {}", providers);
+        Ok(providers.to_string())
+    }
+
+    /// 扫描游戏文件夹（异步版本，支持并行扫描多个路径）
+    ///
+    /// # 参数
+    /// - `paths_json`: 路径 JSON 数组
+    /// - `providers`: 游戏数据库提供者列表（如 "IGDB,DLSITE,STEAMDB"）
+    ///
+    /// # 返回
+    /// - `anyhow::Result<Vec<gamebox::models::game_info::GameInfo>>` - 扫描到的游戏信息列表
+    ///
+    /// # DDD 设计
+    /// - ✅ 基础设施层：scan_game_folders() - 只负责扫描文件夹，刮削元数据
+    /// - ✅ 应用层：编排扫描逻辑，处理多路径并行扫描
+    async fn scan_game_folders_raw(&self, paths_json: &str, providers: &str) -> anyhow::Result<Vec<gamebox::models::game_info::GameInfo>> {
+        // 解析 JSON 路径数组
+        let paths: Vec<String> = serde_json::from_str(paths_json)
+            .unwrap_or_else(|_| vec![paths_json.to_string()]);
+
+        // 如果只有一个路径，直接顺序扫描（避免并行开销）
+        if paths.len() == 1 {
+            let path = &paths[0];
+            tracing::info!("Scanning games in single path: {}, providers: {}", path, providers);
+
+            // ✅ 基础设施层：扫描游戏文件夹
+            let game_infos = infrastructure::file_scanner::scan_game_folders(path, providers)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to scan games: {}", e))?;
+
+            tracing::info!("Found {} games in {}", game_infos.len(), path);
+            return Ok(game_infos);
+        }
+
+        // 多路径：并行扫描所有路径
+        tracing::info!("Scanning games in {} paths (parallel mode), providers: {}", paths.len(), providers);
+
+        // 创建并行任务
+        let mut tasks = Vec::new();
+        for path in paths {
+            let providers_clone = providers.to_string();
+
+            let task = tokio::spawn(async move {
+                tracing::debug!("Scanning game path: {}", path);
+                // ✅ 基础设施层：扫描游戏文件夹
+                let result = infrastructure::file_scanner::scan_game_folders(&path, &providers_clone).await;
+                (path, result)
+            });
+            tasks.push(task);
+        }
+
+        // 等待所有任务完成并收集结果
+        let mut all_games = Vec::new();
+        for task in tasks {
+            let (path, result) = task.await
+                .map_err(|e| anyhow::anyhow!("Task join error: {}", e))?;
+
+            match result {
+                Ok(games) => {
+                    tracing::info!("Found {} games in {}", games.len(), path);
+                    all_games.extend(games);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to scan games in path {}: {}", path, e);
+                    // 继续处理其他路径，不中断整个扫描过程
+                }
+            }
+        }
+
+        tracing::info!("Total games found: {}", all_games.len());
+        Ok(all_games)
     }
 
     // endregion

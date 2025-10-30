@@ -13,8 +13,18 @@ export function useMangaData(mangaId: number) {
             try {
                 setLoading(true);
 
+                // 只需要获取漫画信息，图片列表直接根据 page_count 生成
                 const mangaData = await mangasApi.getById(mangaId);
-                const imagesData = await mangasApi.getImages(mangaId);
+
+                // 根据 page_count 生成图片数组
+                const imagesData: MangaImage[] = [];
+                for (let i = 0; i < mangaData.page_count; i++) {
+                    imagesData.push({
+                        index: i,
+                        path: '', // 不需要路径信息
+                        url: mangasApi.getImageUrl(mangaId, i),
+                    });
+                }
 
                 setManga(mangaData);
                 setImages(imagesData);

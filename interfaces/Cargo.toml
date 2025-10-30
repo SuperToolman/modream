@@ -7,6 +7,10 @@ edition = "2024"
 name = "interfaces"
 path = "src/lib.rs"
 
+[features]
+default = ["gamebox"]
+gamebox = ["application/gamebox"]
+
 [dependencies]
 domain = {path="../domain"}
 shared = {path="../shared"}
@@ -30,7 +34,7 @@ validator = "0.20.0"
 application = { version = "0.1.0", path = "../application" }
 serde_json = "1.0.145"
 utoipa = { version = "5.4.0", features = ["axum_extras", "debug"] } # openapi
-utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] } # openapi 文档
+utoipa-swagger-ui = { version = "9.0.2", features = ["axum", "vendored"] } # openapi 文档 - 使用 vendored 避免网络下载
 utoipa-axum = { version = "0.2.0", features = ["debug"] }
 bcrypt = "0.17.1" # 密码哈希
 tower-http = { version = "0.6.6", features = ["cors"] }

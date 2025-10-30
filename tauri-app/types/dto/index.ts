@@ -81,6 +81,28 @@ export {
   type UpdateMediaLibraryRequest,
 } from './media_library.dto';
 
+// ==================== 游戏相关 ====================
+export {
+  GameInfoSchema,
+  GamePaginationRequestSchema,
+  GamePaginationResponseSchema,
+  CreateGameRequestSchema,
+  ScanGamesRequestSchema,
+  LaunchGameRequestSchema,
+  UpdateDefaultStartPathRequestSchema,
+  validateGameInfo,
+  validateGamePaginationResponse,
+  validateCreateGameRequest,
+  validateScanGamesRequest,
+  type GameInfo,
+  type GamePaginationRequest,
+  type GamePaginationResponse,
+  type CreateGameRequest,
+  type ScanGamesRequest,
+  type LaunchGameRequest,
+  type UpdateDefaultStartPathRequest,
+} from './game.dto';
+
 // ==================== 通用相关 ====================
 export {
   ApiSuccessResponseSchema,

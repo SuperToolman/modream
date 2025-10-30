@@ -1,24 +1,27 @@
+use crate::entity::game;
 use crate::entity::manga;
 use crate::entity::media_library;
 use crate::service::MangaDomainService;
 
 /// MediaLibrary 聚合根
-/// 
+///
 /// # DDD 设计
-/// - ✅ 聚合根：MediaLibrary 是聚合根，管理其下的所有 Manga 实体
-/// - ✅ 一致性边界：所有对 Manga 的创建和更新都通过聚合根进行
+/// - ✅ 聚合根：MediaLibrary 是聚合根，管理其下的所有媒体实体（Manga、Game 等）
+/// - ✅ 一致性边界：所有对媒体实体的创建和更新都通过聚合根进行
 /// - ✅ 业务规则：聚合根保证业务规则的一致性
-/// 
+///
 /// # 职责
 /// - 管理 MediaLibrary 实体的生命周期
-/// - 管理 Manga 实体的创建和更新
-/// - 保证 MediaLibrary 和 Manga 之间的一致性
+/// - 管理 Manga、Game 等媒体实体的创建和更新
+/// - 保证 MediaLibrary 和媒体实体之间的一致性
 /// - 封装业务规则
 pub struct MediaLibraryAggregate {
     /// 媒体库实体（聚合根）
     pub media_library: media_library::Model,
     /// 漫画实体列表（聚合内的实体）
     pub mangas: Vec<manga::Model>,
+    /// 游戏实体列表（聚合内的实体）
+    pub games: Vec<game::Model>,
 }
 
 impl MediaLibraryAggregate {
@@ -55,24 +58,28 @@ impl MediaLibraryAggregate {
         Ok(Self {
             media_library,
             mangas: Vec::new(),
+            games: Vec::new(),
         })
     }
 
     /// 从现有的媒体库实体创建聚合根
-    /// 
+    ///
     /// # 参数
     /// - `media_library`: 媒体库实体
     /// - `mangas`: 漫画实体列表
-    /// 
+    /// - `games`: 游戏实体列表
+    ///
     /// # 返回
     /// - `Self` - 创建的聚合根
     pub fn from_entities(
         media_library: media_library::Model,
         mangas: Vec<manga::Model>,
+        games: Vec<game::Model>,
     ) -> Self {
         Self {
             media_library,
             mangas,
+            games,
         }
     }
 
@@ -257,5 +264,141 @@ impl MediaLibraryAggregate {
     /// 获取路径列表
     pub fn get_paths(&self) -> anyhow::Result<Vec<String>> {
         self.media_library.get_paths()
+    }
+
+    // ============================================================================
+    // Game 相关方法
+    // ============================================================================
+
+    /// 添加游戏到聚合根
+    ///
+    /// # 参数
+    /// - `title`: 游戏标题
+    /// - `root_path`: 游戏根目录
+    /// - `start_paths`: 启动路径列表（JSON 数组字符串）
+    /// - `release_date`: 发行日期
+    ///
+    /// # 返回
+    /// - `anyhow::Result<&game::Model>` - 添加的游戏实体引用
+    ///
+    /// # 业务规则
+    /// - 游戏必须属于当前媒体库
+    /// - 游戏根目录不能重复
+    /// - 自动更新媒体库的项目数量
+    pub fn add_game(
+        &mut self,
+        title: String,
+        root_path: String,
+        start_paths: String,
+        release_date: String,
+    ) -> anyhow::Result<&game::Model> {
+        // 检查根目录是否重复
+        if self.games.iter().any(|g| g.root_path == root_path) {
+            return Err(anyhow::anyhow!("Game with root path '{}' already exists", root_path));
+        }
+
+        // 创建游戏实体（使用工厂方法，自动验证业务规则）
+        let game = game::Model::new(
+            title,
+            root_path,
+            start_paths,
+            release_date,
+            self.media_library.id,
+        )?;
+
+        // 添加到聚合根
+        self.games.push(game);
+
+        // 更新媒体库的项目数量
+        self.media_library.increment_item_count(1)?;
+
+        // 返回最后添加的游戏引用
+        Ok(self.games.last().unwrap())
+    }
+
+    /// 批量添加游戏到聚合根（从 gamebox::GameInfo 转换，保留完整元数据）
+    ///
+    /// # 参数
+    /// - `game_infos`: gamebox 扫描返回的游戏信息列表
+    ///
+    /// # 返回
+    /// - `anyhow::Result<usize>` - 成功添加的游戏数量
+    ///
+    /// # 业务规则
+    /// - 所有游戏必须属于当前媒体库
+    /// - 游戏根目录不能重复
+    /// - 自动更新媒体库的项目数量
+    /// - ✅ 保留所有元数据（封面、描述、开发商、发行商、标签等）
+    #[cfg(feature = "gamebox")]
+    pub fn add_games_from_game_info_batch(
+        &mut self,
+        game_infos: Vec<gamebox::models::game_info::GameInfo>,
+    ) -> anyhow::Result<usize> {
+        let mut added_count = 0;
+
+        for game_info in game_infos {
+            let root_path = game_info.dir_path.to_string_lossy().to_string();
+
+            // 检查根目录是否重复
+            if self.games.iter().any(|g| g.root_path == root_path) {
+                tracing::warn!("Skipping duplicate game root path: {}", root_path);
+                continue;
+            }
+
+            // 使用 from_game_info 转换（保留所有元数据）
+            match game::Model::from_game_info(game_info, self.media_library.id) {
+                Ok(mut game) => {
+                    // 确保 media_library_id 正确
+                    game.media_library_id = self.media_library.id;
+                    self.games.push(game);
+                    added_count += 1;
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to create game from GameInfo for path {}: {}", root_path, e);
+                }
+            }
+        }
+
+        // 更新媒体库的项目数量
+        if added_count > 0 {
+            self.media_library.increment_item_count(added_count as i32)?;
+        }
+
+        Ok(added_count)
+    }
+
+    /// 移除游戏从聚合根
+    ///
+    /// # 参数
+    /// - `game_id`: 游戏 ID
+    ///
+    /// # 返回
+    /// - `anyhow::Result<game::Model>` - 移除的游戏实体
+    ///
+    /// # 业务规则
+    /// - 游戏必须属于当前媒体库
+    /// - 自动更新媒体库的项目数量
+    pub fn remove_game(&mut self, game_id: i32) -> anyhow::Result<game::Model> {
+        // 查找游戏索引
+        let index = self.games.iter().position(|g| g.id == game_id)
+            .ok_or_else(|| anyhow::anyhow!("Game with id {} not found", game_id))?;
+
+        // 移除游戏
+        let game = self.games.remove(index);
+
+        // 更新媒体库的项目数量
+        self.media_library.decrement_item_count(1)?;
+
+        Ok(game)
+    }
+
+    /// 获取游戏数量
+    pub fn game_count(&self) -> usize {
+        self.games.len()
+    }
+
+    /// 获取总媒体项数量（漫画 + 游戏）
+    pub fn total_media_count(&self) -> usize {
+        self.mangas.len() + self.games.len()
     }
 }

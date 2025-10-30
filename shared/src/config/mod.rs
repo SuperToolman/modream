@@ -5,12 +5,14 @@ use std::sync::LazyLock;
 
 pub use server::ServerConfig; // 导出服务器配置结构体
 pub use database::DatabaseConfig;
+pub use gamebox::GameboxConfig;
 // 导出数据库配置机构提
 
 
 // 延迟初始化静态变量，线程安全的懒加载
 mod database;
 pub mod server;
+pub mod gamebox;
 // 服务器配置模块，包含ServerConfig定义
 
 static CONFIG: LazyLock<AppConfig> =
@@ -21,6 +23,8 @@ static CONFIG: LazyLock<AppConfig> =
 pub struct AppConfig {
     server: ServerConfig,
     database: DatabaseConfig,
+    #[serde(default)]
+    gamebox: GameboxConfig,
 }
 
 impl AppConfig {
@@ -52,6 +56,9 @@ impl AppConfig {
     }
     pub fn database(&self) -> &DatabaseConfig {
         &self.database
+    }
+    pub fn gamebox(&self) -> &GameboxConfig {
+        &self.gamebox
     }
 }
 

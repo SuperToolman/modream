@@ -3,10 +3,15 @@ name = "application"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["gamebox"]
+gamebox = ["dep:gamebox", "domain/gamebox", "infrastructure/gamebox"]
+
 [dependencies]
 anyhow = "1.0.100"
 chrono = "0.4.42"
 domain = { version = "0.1.0", path = "../domain" }
+gamebox = { version = "0.1.1", optional = true }
 infrastructure = { version = "0.1.0", path = "../infrastructure" }
 image = "0.24" # 图片处理库
 moka = { version = "0.12", features = ["future"] } # 异步缓存库

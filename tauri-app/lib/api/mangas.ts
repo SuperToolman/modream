@@ -3,7 +3,7 @@
  */
 
 import { http } from '@/lib/http';
-import type { Manga, MangaPaginationResponse, MangaPaginationRequest, MangaImage, MangaImagesResponse } from '@/types/manga';
+import type { Manga, MangaPaginationResponse, MangaPaginationRequest, MangaImage, OptimizedImageListResponse } from '@/types/manga';
 
 export const mangasApi = {
   /**
@@ -32,11 +32,26 @@ export const mangasApi = {
    * 获取漫画的所有图片列表
    * @param id 漫画 ID
    * @returns 漫画图片列表
+   * @deprecated 推荐直接使用 manga.page_count 和 getImageUrl() 生成图片列表，避免额外的 API 调用
    */
   async getImages(id: number): Promise<MangaImage[]> {
-    // http.get 会自动提取 response.data.data，所以这里 response 就是 MangaImage[]
-    const response = await http.get<MangaImage[]>(`/manga/${id}/images`);
-    return Array.isArray(response) ? response : [];
+    // 后端返回的是优化格式：{ count: number, url_template: string }
+    const response = await http.get<OptimizedImageListResponse>(`/manga/${id}/images`);
+
+    // 将优化格式转换为 MangaImage[] 数组
+    if (response && typeof response.count === 'number' && response.url_template) {
+      const images: MangaImage[] = [];
+      for (let i = 0; i < response.count; i++) {
+        images.push({
+          index: i,
+          path: '', // 路径信息不需要，前端只使用 URL
+          url: response.url_template.replace('{index}', i.toString()),
+        });
+      }
+      return images;
+    }
+
+    return [];
   },
 
   /**

@@ -15,12 +15,11 @@
 
 ## ⚠️ 当前状态
 
-> **项目处于早期开发阶段**，目前媒体库仅支持 **漫画** 功能。以下功能正在开发中：
+> **项目处于早期开发阶段**，目前已支持 **漫画** 和 **游戏** 管理功能。以下功能正在开发中：
 
 ### 🚧 待完成功能
 
-- 🎬 **视频管理** - 视频上传、播放、字幕支持（开发中）
-- 🎮 **游戏管理** - 游戏库管理、元数据识别（计划中）
+- 🎬 **视频管理** - 视频上传、播放、字幕支持（计划中）
 - 🎞️ **动画管理** - 动画库、剧集管理（计划中）
 - 📺 **电影管理** - 电影库、推荐系统（计划中）
 - 🔄 **同步功能** - 多设备同步、云备份（计划中）
@@ -29,6 +28,7 @@
 ### ✅ 已完成功能
 
 - 📚 **漫画管理** - 完整的漫画库管理和阅读功能
+- 🎮 **游戏管理** - 游戏库管理、元数据自动识别、游戏启动功能
 
 ## 📋 目录
 
@@ -63,11 +63,13 @@
 ### 媒体管理特性
 
 - 📚 **漫画管理** - 漫画库创建、编辑、删除
+- 🎮 **游戏管理** - 游戏库管理、元数据自动识别、游戏启动
 - 🖼️ **图片处理** - 自动缩略图、多种格式支持
 - 📁 **媒体库** - 灵活的媒体库组织方式
 - 🔍 **智能扫描** - 自动扫描和索引本地文件
 - 🏷️ **标签系统** - 标签和分类管理
 - ⭐ **收藏功能** - 标记喜爱的内容
+- 🎯 **元数据刮削** - 支持 IGDB、DLsite、SteamDB 等多个游戏数据库
 
 ## 🔄 与其他方案对比
 
@@ -177,6 +179,7 @@
 - **认证**: JWT + Bcrypt
 - **缓存**: Moka 0.12
 - **图片**: Image 0.24
+- **游戏元数据**: Gamebox 0.1.1
 
 ### 前端 (TypeScript/Next.js)
 - **框架**: Next.js 15.3.1
@@ -194,13 +197,28 @@
 ## 📁 项目结构
 
 ```
-web_api/
+modream/
 ├── shared/              # 共享模块（配置、日志）
 ├── domain/              # 领域层（实体、聚合、仓储）
+│   ├── entity/         # 实体定义（manga, game, media_library）
+│   ├── aggregate/      # 聚合根（media_library_aggregate）
+│   ├── repository/     # 仓储接口
+│   └── service/        # 领域服务
 ├── infrastructure/      # 基础设施层（数据库、JWT、密码）
+│   ├── repository/     # 仓储实现
+│   └── file_scanner/   # 文件扫描器（漫画、游戏）
 ├── application/         # 应用层（业务逻辑、DTO、服务）
+│   ├── dto/            # 数据传输对象
+│   └── *_service.rs    # 应用服务
 ├── interfaces/          # 接口层（API 路由、错误处理）
+│   └── api/            # API 端点
 ├── tauri-app/           # 前端应用（Next.js + Tauri）
+│   ├── app/            # Next.js 页面
+│   ├── components/     # React 组件
+│   ├── lib/            # 工具库和 API 客户端
+│   └── src-tauri/      # Tauri 桌面应用
+├── migrations/          # 数据库迁移文件
+├── docs/                # 项目文档
 ├── application.yaml     # 应用配置
 ├── Cargo.toml          # Rust Workspace 配置
 └── .gitignore
@@ -243,25 +261,87 @@ pnpm tauri dev
 Swagger UI: http://localhost:8080/swagger-ui
 
 ### 主要端点
+
+#### 认证
 ```
-POST   /api/auth/login
-POST   /api/auth/register
-GET    /api/users
-GET    /api/manga
-GET    /api/manga/{id}
-GET    /api/manga/{id}/images
-GET    /api/manga/{id}/images/{idx}
-GET    /api/manga/{id}/cover
-GET    /api/media_libraries
+POST   /api/auth/login          # 用户登录
+POST   /api/auth/register       # 用户注册
+```
+
+#### 用户管理
+```
+GET    /api/users               # 获取用户列表
+```
+
+#### 漫画管理
+```
+GET    /api/manga               # 获取漫画列表
+GET    /api/manga/{id}          # 获取漫画详情
+GET    /api/manga/{id}/images   # 获取漫画图片列表
+GET    /api/manga/{id}/images/{idx}  # 获取指定图片
+GET    /api/manga/{id}/cover    # 获取漫画封面
+```
+
+#### 游戏管理
+```
+GET    /api/games               # 获取游戏列表
+GET    /api/games/{id}          # 获取游戏详情
+POST   /api/games/{id}/launch   # 启动游戏
+PUT    /api/games/{id}/default-start-path  # 设置默认启动路径
+```
+
+#### 媒体库管理
+```
+GET    /api/media_libraries     # 获取媒体库列表
+POST   /api/media_libraries/local    # 创建本地媒体库
+POST   /api/media_libraries/webdav   # 创建 WebDAV 媒体库
+GET    /api/media_libraries/{id}/manga  # 获取媒体库中的漫画
+GET    /api/media_libraries/{id}/games  # 获取媒体库中的游戏
+```
+
+#### 配置管理
+```
+GET    /api/config/gamebox      # 获取游戏数据库配置
+PUT    /api/config/gamebox      # 更新游戏数据库配置
 ```
 
 ## 🎯 核心功能
 
-1. **用户认证** - 注册、登录、Token 管理
-2. **用户管理** - 用户信息、等级、经验系统
-3. **漫画管理** - 列表、详情、图片管理
-4. **图片处理** - 缩略图、流式传输、缓存
-5. **媒体库** - 资源组织和管理
+### 1. 用户认证与管理
+- ✅ 用户注册、登录
+- ✅ JWT Token 认证
+- ✅ Bcrypt 密码加密
+- ✅ 用户等级和经验系统
+
+### 2. 漫画管理
+- ✅ 漫画库创建、编辑、删除
+- ✅ 漫画详情查看
+- ✅ 在线阅读功能
+- ✅ 图片缩略图生成
+- ✅ 流式传输和缓存
+- ✅ 标签和分类管理
+
+### 3. 游戏管理 🆕
+- ✅ 游戏库自动扫描
+- ✅ 多数据库元数据刮削（IGDB、DLsite、SteamDB）
+- ✅ 游戏详情展示（封面、截图、描述、标签等）
+- ✅ 游戏启动功能（支持 Windows、macOS、Linux）
+- ✅ 默认启动路径配置
+- ✅ 游戏卡片组件（悬停轮播、默认封面）
+- ✅ Steam 风格的游戏详情页
+
+### 4. 媒体库管理
+- ✅ 本地媒体库支持
+- ✅ WebDAV 远程媒体库支持
+- ✅ 灵活的媒体库组织方式
+- ✅ 自动扫描和索引
+- ✅ 媒体库配置管理
+
+### 5. 配置管理 🆕
+- ✅ 游戏数据库提供者配置（IGDB API 凭证）
+- ✅ 配置 API 端点
+- ✅ 前端配置页面
+- ✅ YAML 配置文件支持
 
 ## 👨‍💻 开发指南
 
@@ -270,6 +350,23 @@ GET    /api/media_libraries
 2. 实现服务 (`application/src/*_service.rs`)
 3. 创建路由 (`interfaces/src/api/`)
 4. 添加 Swagger 文档
+
+### 配置游戏数据库提供者
+
+编辑 `application.yaml` 添加 IGDB API 凭证：
+
+```yaml
+gamebox:
+  igdb:
+    client_id: "your_client_id"
+    client_secret: "your_client_secret"
+    enabled: true
+```
+
+获取 IGDB API 凭证：
+1. 访问 [IGDB API 文档](https://api-docs.igdb.com/#account-creation)
+2. 注册 Twitch 开发者账号
+3. 创建应用获取 Client ID 和 Client Secret
 
 ### 配置
 编辑 `application.yaml` 修改配置
@@ -289,11 +386,124 @@ docker build -t overweb .
 docker run -p 8080:8080 -v /path/to/data:/app/data overweb
 ```
 
+## 📝 更新日志
+
+### v0.2.0 (2025-10-30) - 游戏管理功能上线 🎮
+
+本次更新是一个大型功能更新，完整实现了游戏管理系统，包括前后端完整功能。
+
+#### 🎮 游戏管理核心功能
+- ✅ **游戏实体和仓储** - 完整的游戏领域模型（`domain/src/entity/game.rs`）
+- ✅ **游戏服务** - 游戏业务逻辑和应用服务（`application/src/game_service.rs`）
+- ✅ **游戏 API** - RESTful API 端点（`interfaces/src/api/game.rs`）
+  - `GET /api/games` - 获取游戏列表
+  - `GET /api/games/{id}` - 获取游戏详情
+  - `POST /api/games/{id}/launch` - 启动游戏
+  - `PUT /api/games/{id}/default-start-path` - 设置默认启动路径
+- ✅ **游戏扫描器** - 自动扫描游戏文件夹（`infrastructure/src/file_scanner/scan_by_game.rs`）
+- ✅ **元数据刮削** - 集成 gamebox 库，支持多个游戏数据库
+  - IGDB（需要 API 凭证）
+  - DLsite（无需配置）
+  - SteamDB（无需配置）
+
+#### 🎨 前端游戏功能
+- ✅ **游戏卡片组件** - 精美的游戏卡片展示（`tauri-app/components/cards/game-card.tsx`）
+  - 默认封面支持
+  - 标题固定 2 行高度
+  - 悬停显示开发商/发行商（带渐变阴影）
+  - 悬停 2 秒后轮播封面
+- ✅ **游戏列表页** - 游戏库浏览页面（`tauri-app/app/(main)/content/games/page.tsx`）
+- ✅ **游戏详情页** - Steam 风格的详情页（`tauri-app/app/(main)/content/games/[id]/page.tsx`）
+  - 大型封面展示（带标题渐变阴影）
+  - 截图轮播和预览
+  - 游戏描述和详细信息
+  - 标签、平台、开发商等元数据
+  - 启动游戏按钮
+  - 启动路径选择和配置
+- ✅ **游戏 API 客户端** - TypeScript API 封装（`tauri-app/lib/api/games.ts`）
+
+#### ⚙️ 配置管理系统
+- ✅ **Gamebox 配置** - 游戏数据库提供者配置（`shared/src/config/gamebox.rs`）
+  - IGDB API 凭证配置
+  - 启用/禁用提供者
+- ✅ **配置 API** - 配置管理端点（`interfaces/src/api/config.rs`）
+  - `GET /api/config/gamebox` - 获取配置
+  - `PUT /api/config/gamebox` - 更新配置
+- ✅ **配置页面** - 前端配置界面（`tauri-app/app/(main)/setting/general/page.tsx`）
+  - 显示 IGDB 配置状态
+  - 显示脱敏的 Client ID
+  - 配置说明和示例
+
+#### 🚀 游戏启动功能
+- ✅ **跨平台启动** - 支持 Windows、macOS、Linux
+  - Windows: `cmd /C start`
+  - macOS: `open`
+  - Linux: `xdg-open`
+- ✅ **Tauri 集成** - 桌面应用游戏启动命令（`tauri-app/src-tauri/src/lib.rs`）
+- ✅ **启动路径管理** - 支持多个可执行文件，可设置默认启动路径
+
+#### 📦 媒体库增强
+- ✅ **游戏媒体库** - 支持创建游戏类型的媒体库
+- ✅ **聚合根增强** - `MediaLibraryAggregate` 支持游戏管理
+  - `add_games_from_game_info_batch()` - 批量添加游戏
+  - 保留完整的游戏元数据（JSON 格式）
+- ✅ **媒体库表单** - 前端支持游戏库配置
+  - 游戏数据库提供者选择
+  - 多路径扫描支持
+
+#### 🗄️ 数据库迁移
+- ✅ **游戏表** - 完整的游戏数据表结构（`migrations/`）
+  - 基本信息（标题、描述、开发商、发行商）
+  - 元数据（标签、平台、发行日期、版本）
+  - 媒体资源（封面、截图、视频）
+  - 启动配置（启动路径、默认路径）
+  - 文件信息（路径、大小、格式化大小）
+
+#### 🛠️ 技术改进
+- ✅ **DDD 架构完善** - 严格遵循领域驱动设计
+  - Domain 层：游戏实体、仓储接口、领域服务
+  - Application 层：游戏应用服务、DTO
+  - Infrastructure 层：游戏仓储实现、文件扫描器
+  - Interfaces 层：游戏 API 端点
+- ✅ **类型安全** - 完整的 TypeScript 类型定义（`tauri-app/types/dto/game.dto.ts`）
+- ✅ **错误处理** - 完善的错误处理和日志记录
+- ✅ **配置系统** - 灵活的 YAML 配置支持
+
+#### 📚 文档
+- ✅ **设计文档** - 媒体库配置设计文档（`docs/media-library-config-design.md`）
+- ✅ **README 更新** - 更新项目说明和功能列表
+
+#### 🐛 Bug 修复
+- ✅ 修复默认封面路径问题（复制到 `public/assets/image/`）
+- ✅ 修复 Tauri 配置文件 JSON 注释问题
+- ✅ 修复配置文件键名不匹配问题（`game_providers` → `gamebox`）
+- ✅ 修复前端 API 响应解析问题
+
+#### 📊 统计
+- **新增文件**: 15+ 个
+- **修改文件**: 40+ 个
+- **代码行数**: 3000+ 行
+- **功能模块**: 游戏管理、配置管理、文件扫描、元数据刮削
+
+---
+
+### v0.1.0 (2025-10-27) - 初始版本
+
+- ✅ 基础架构搭建（DDD 分层架构）
+- ✅ 用户认证系统（JWT + Bcrypt）
+- ✅ 漫画管理功能
+- ✅ 媒体库管理
+- ✅ 图片处理和缓存
+- ✅ Next.js + Tauri 前端
+- ✅ Swagger API 文档
+
+---
+
 ## 📝 许可证
 
 MIT License
 
 ---
 
-**最后更新**: 2025-10-27
+**最后更新**: 2025-10-30
 

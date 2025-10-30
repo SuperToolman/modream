@@ -21,6 +21,39 @@ pub struct CreateMediaLibraryRequest {
     #[schema(example = "漫画")]
     #[serde(rename = "type")]
     pub media_type: String,
+
+    /// 类型特定的配置（JSON 对象）
+    ///
+    /// # 示例
+    ///
+    /// 游戏库配置：
+    /// ```json
+    /// {
+    ///   "gameProviders": "IGDB,DLSITE,STEAMDB",
+    ///   "metadataStorage": "database"
+    /// }
+    /// ```
+    ///
+    /// 漫画库配置：
+    /// ```json
+    /// {
+    ///   "comicFormats": "CBZ,CBR,PDF,EPUB",
+    ///   "metadataStorage": "mixed"
+    /// }
+    /// ```
+    ///
+    /// WebDAV 配置：
+    /// ```json
+    /// {
+    ///   "url": "https://webdav.example.com",
+    ///   "username": "user",
+    ///   "password": "encrypted_password",
+    ///   "path": "/media"
+    /// }
+    /// ```
+    #[schema(example = json!({"gameProviders": "IGDB,DLSITE", "metadataStorage": "database"}))]
+    #[serde(default)]
+    pub config: Option<serde_json::Value>,
 }
 
 /// 媒体库信息 DTO
@@ -37,11 +70,18 @@ pub struct MediaLibraryInfo {
     pub last_scanned: String,
     pub item_count: i32,
     pub cover: Option<String>,
+
+    /// 配置 JSON（返回给前端时解析为对象）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<serde_json::Value>,
 }
 
 /// 从 Domain 层的 MediaLibrary Model 转换为 MediaLibraryInfo DTO
 impl From<domain::entity::media_library::Model> for MediaLibraryInfo {
     fn from(media_library: domain::entity::media_library::Model) -> Self {
+        // 尝试解析 config_json，如果失败则返回 None
+        let config = serde_json::from_str(&media_library.config_json).ok();
+
         MediaLibraryInfo {
             id: media_library.id,
             title: media_library.title,
@@ -53,6 +93,7 @@ impl From<domain::entity::media_library::Model> for MediaLibraryInfo {
             last_scanned: media_library.last_scanned,
             item_count: media_library.item_count,
             cover: media_library.cover,
+            config,
         }
     }
 }

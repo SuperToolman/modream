@@ -1,3 +1,5 @@
+use std::process::Command;
+
 // 窗口控制命令
 #[tauri::command]
 fn minimize_window(window: tauri::Window) {
@@ -24,6 +26,36 @@ fn is_maximized(window: tauri::Window) -> bool {
   window.is_maximized().unwrap_or(false)
 }
 
+// 启动游戏命令
+#[tauri::command]
+fn launch_game(game_path: String) -> Result<String, String> {
+  #[cfg(target_os = "windows")]
+  {
+    Command::new("cmd")
+      .args(&["/C", "start", "", &game_path])
+      .spawn()
+      .map_err(|e| format!("Failed to launch game: {}", e))?;
+  }
+
+  #[cfg(target_os = "macos")]
+  {
+    Command::new("open")
+      .arg(&game_path)
+      .spawn()
+      .map_err(|e| format!("Failed to launch game: {}", e))?;
+  }
+
+  #[cfg(target_os = "linux")]
+  {
+    Command::new("xdg-open")
+      .arg(&game_path)
+      .spawn()
+      .map_err(|e| format!("Failed to launch game: {}", e))?;
+  }
+
+  Ok(format!("Game launched: {}", game_path))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -32,7 +64,8 @@ pub fn run() {
       maximize_window,
       unmaximize_window,
       close_window,
-      is_maximized
+      is_maximized,
+      launch_game
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

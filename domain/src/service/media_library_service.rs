@@ -48,11 +48,14 @@ impl MediaLibraryDomainService {
     }
 
     /// 验证媒体类型
-    /// 
+    ///
     /// 业务规则：
-    /// - 媒体类型必须是有效的类型（漫画、音乐、电视节目等）
+    /// - 媒体类型必须是有效的类型
     pub fn validate_media_type(media_type: &str) -> anyhow::Result<()> {
-        let valid_types = vec!["漫画", "音乐", "电视节目", "电影", "其他"];
+        let valid_types = vec![
+            "电影", "视频", "音乐", "电视节目", "有声读物", "书籍",
+            "游戏", "漫画", "音乐视频", "照片", "混合内容"
+        ];
         if !valid_types.contains(&media_type) {
             return Err(anyhow::anyhow!(
                 "Invalid media type: {}. Valid types: {:?}",
@@ -91,11 +94,12 @@ impl MediaLibraryDomainService {
     }
 
     /// 判断媒体类型是否支持扫描
-    /// 
+    ///
     /// 业务规则：
-    /// - 目前只有 "漫画" 类型支持扫描
+    /// - "漫画" 类型支持扫描（扫描图片文件夹）
+    /// - "游戏" 类型支持扫描（使用 gamebox 库扫描游戏）
     pub fn is_scannable_media_type(media_type: &str) -> bool {
-        media_type == "漫画"
+        matches!(media_type, "漫画" | "游戏")
     }
 
     /// 生成媒体库封面 URL
@@ -149,7 +153,10 @@ mod tests {
     fn test_validate_media_type() {
         // 有效类型
         assert!(MediaLibraryDomainService::validate_media_type("漫画").is_ok());
+        assert!(MediaLibraryDomainService::validate_media_type("游戏").is_ok());
         assert!(MediaLibraryDomainService::validate_media_type("音乐").is_ok());
+        assert!(MediaLibraryDomainService::validate_media_type("电影").is_ok());
+        assert!(MediaLibraryDomainService::validate_media_type("视频").is_ok());
 
         // 无效类型
         assert!(MediaLibraryDomainService::validate_media_type("invalid").is_err());
@@ -166,9 +173,14 @@ mod tests {
 
     #[test]
     fn test_is_scannable_media_type() {
+        // 支持扫描的类型
         assert!(MediaLibraryDomainService::is_scannable_media_type("漫画"));
+        assert!(MediaLibraryDomainService::is_scannable_media_type("游戏"));
+
+        // 不支持扫描的类型
         assert!(!MediaLibraryDomainService::is_scannable_media_type("音乐"));
         assert!(!MediaLibraryDomainService::is_scannable_media_type("电视节目"));
+        assert!(!MediaLibraryDomainService::is_scannable_media_type("电影"));
     }
 
     #[test]

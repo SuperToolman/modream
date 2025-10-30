@@ -30,6 +30,9 @@ pub trait MangaRepository: Send + Sync {
     /// 根据媒体库 ID 查询所有漫画
     async fn find_by_media_library_id(&self, media_library_id: i32) -> anyhow::Result<Vec<MangaModel>>;
 
+    /// 删除漫画
+    async fn delete(&self, id: i32) -> anyhow::Result<()>;
+
     /// 获取所有漫画的总数
     async fn count_all(&self) -> anyhow::Result<i32>;
 }

@@ -112,13 +112,43 @@ pub async fn get_manga_by_media_library(
 }
 // endregion
 
+// region: 删除媒体库
+#[utoipa::path(
+    delete,
+    path = "/api/media_libraries/{id}",
+    tag = "media_library",
+    responses(
+        (status = 200, description = "Delete media library successful"),
+        (status = 404, description = "Media library not found"),
+    )
+)]
+pub async fn delete_media_library(
+    State(AppState { media_library_service, .. }): State<AppState>,
+    Path(id): Path<i32>,
+) -> ApiResult<impl IntoResponse> {
+    // 删除媒体库（包括级联删除关联的游戏和漫画）
+    media_library_service.delete(id)
+        .await
+        .map_err(|e| AppError::Biz(e.to_string()))?;
 
+    let response = ApiResponse::ok(
+        Some("Delete media library successful"),
+        Some(()),
+        None,
+        None,
+    );
+
+    Ok((StatusCode::OK, axum::Json(response)))
+}
+// endregion
 
 /// 媒体库路由
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/local", routing::post(create_media_library))
+        .route("/webdav", routing::post(create_media_library)) // WebDAV 使用相同的处理函数
         .route("/", routing::get(query_all_media_libraries))
         .route("/{media_library_id}/manga", routing::get(get_manga_by_media_library))
+        .route("/{id}", routing::delete(delete_media_library))
 }
 

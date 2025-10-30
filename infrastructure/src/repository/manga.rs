@@ -193,6 +193,11 @@ impl MangaRepository for MangaRepositoryImpl {
         Ok(mangas)
     }
 
+    async fn delete(&self, id: i32) -> anyhow::Result<()> {
+        Manga::delete_by_id(id).exec(&self.db).await?;
+        Ok(())
+    }
+
     async fn count_all(&self) -> anyhow::Result<i32> {
         let count = Manga::find().count(&self.db).await?;
         Ok(count as i32)

@@ -16,7 +16,9 @@ pub mod auth;
 pub mod user;
 pub mod media_library;
 pub mod manga;
+pub mod game;
 pub mod image;
+pub mod config;
 
 /// 请求日志中间件 - 记录所有请求的详细信息
 async fn log_request(
@@ -63,7 +65,9 @@ pub fn create_router() -> Router<AppState> {
                 .nest("/auth", auth::create_router())
                 .nest("/media_libraries", media_library::routes())
                 .nest("/manga", manga::routes())
-                .nest("/manga", image::routes()),
+                .nest("/manga", image::routes())
+                .nest("/config", config::routes())
+                .merge(game::routes()),
         )
         .fallback(async || -> ApiResult<()> {
             // tracing::warn!(

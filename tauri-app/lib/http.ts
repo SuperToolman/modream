@@ -36,7 +36,7 @@ class HttpClient {
   constructor() {
     // 根据环境设置基础URL
     this.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
-    this.timeout = 10000; // 10秒超时
+    this.timeout = 300000; // 5分钟超时（创建媒体库需要扫描文件，可能需要较长时间）
 
     // 创建axios实例
     this.instance = axios.create({

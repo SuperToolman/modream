@@ -10,9 +10,11 @@
 /// - 不依赖基础设施层
 /// - 只包含纯业务逻辑
 
+pub mod game_service;
 pub mod manga_service;
 pub mod media_library_service;
 
+pub use game_service::GameDomainService;
 pub use manga_service::MangaDomainService;
 pub use media_library_service::MediaLibraryDomainService;
 

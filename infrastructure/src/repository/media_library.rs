@@ -46,6 +46,7 @@ impl MediaLibraryRepository for MediaLibraryRepositoryImpl {
             last_scanned: Set(media_library.last_scanned),
             item_count: Set(media_library.item_count),
             cover: Set(media_library.cover),
+            config_json: Set(media_library.config_json),
         };
 
         let created_media_library = active_model.insert(&self.db).await?;
@@ -65,6 +66,7 @@ impl MediaLibraryRepository for MediaLibraryRepositoryImpl {
             last_scanned: Set(media_library.last_scanned),
             item_count: Set(media_library.item_count),
             cover: Set(media_library.cover),
+            config_json: Set(media_library.config_json),
         };
 
         let updated_media_library = active_model.update(&self.db).await?;

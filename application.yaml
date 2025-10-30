@@ -43,3 +43,9 @@ database:
   database: mysql
   schema: public
   sqlite_database_url: sqlite://data/my_app.db?mode=rwc
+gamebox:
+  igdb:
+    client_id: "8v3vdro2ps2sw47wp3lu7cjerrqktr"
+    client_secret: "a5ofgegn9ky9suic8xg0wlccx5hww6"
+    enabled: true
+

@@ -3,6 +3,7 @@
 pub mod prelude;
 
 pub mod author;
+pub mod game;
 pub mod manga;
 pub mod media_library;
 pub mod user;

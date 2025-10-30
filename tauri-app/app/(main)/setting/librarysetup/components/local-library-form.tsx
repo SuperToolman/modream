@@ -6,6 +6,7 @@ import { Input } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
 import { Button } from "@heroui/button";
 import { Card, CardBody } from "@heroui/card";
+import { Chip } from "@heroui/chip";
 import clsx from "clsx";
 import { useTheme } from "next-themes";
 import { useIsSSR } from "@react-aria/ssr";
@@ -23,6 +24,9 @@ export interface LocalLibraryData {
   name: string;
   folders: string[];
   type: string;
+  gameProviders?: string; // 游戏数据库提供者（逗号分隔字符串，如 "IGDB,DLsite"）
+  metadataStorage?: string; // 元数据存储方式
+  comicFormats?: string; // 漫画格式（逗号分隔字符串）
 }
 
 const LIBRARY_TYPES = [
@@ -51,10 +55,15 @@ export const LocalLibraryForm = ({
   const isSSR = useIsSSR();
   const isDark = theme === 'dark' && !isSSR;
 
+  // 内部状态使用数组，方便管理
+  const [internalGameProviders, setInternalGameProviders] = useState<string[]>(["igdb", "dlsite"]);
+  const [internalComicFormats, setInternalComicFormats] = useState<string[]>(["cbz", "cbr"]);
+
   const [formData, setFormData] = useState<LocalLibraryData>({
     name: "",
     folders: [],
     type: "影片",
+    metadataStorage: "database",
   });
 
   const [errors, setErrors] = useState<{ name?: string; folders?: string }>({});
@@ -95,14 +104,29 @@ export const LocalLibraryForm = ({
 
   const handleSubmit = () => {
     if (validateForm()) {
-      onSubmit(formData);
-      setFormData({ name: "", folders: [], type: "视频" });
+      // 将数组转换为逗号分隔的字符串
+      const submitData: LocalLibraryData = {
+        ...formData,
+        gameProviders: internalGameProviders.length > 0
+          ? internalGameProviders.map(p => p.toUpperCase()).join(',')
+          : undefined,
+        comicFormats: internalComicFormats.length > 0
+          ? internalComicFormats.map(f => f.toUpperCase()).join(',')
+          : undefined,
+      };
+
+      onSubmit(submitData);
+      setFormData({ name: "", folders: [], type: "视频", metadataStorage: "database" });
+      setInternalGameProviders(["igdb", "dlsite"]);
+      setInternalComicFormats(["cbz", "cbr"]);
       onClose();
     }
   };
 
   const handleClose = () => {
-    setFormData({ name: "", folders: [], type: "视频" });
+    setFormData({ name: "", folders: [], type: "视频", metadataStorage: "database" });
+    setInternalGameProviders(["igdb", "dlsite"]);
+    setInternalComicFormats(["cbz", "cbr"]);
     setErrors({});
     onClose();
   };
@@ -111,8 +135,11 @@ export const LocalLibraryForm = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      size="lg"
+      size="5xl"
       backdrop="blur"
+      classNames={{
+        base: "max-w-[800px]",
+      }}
     >
       <ModalContent className={themeStyles.background}>
         <ModalHeader className={clsx("flex flex-col gap-1", themeStyles.text)}>
@@ -125,13 +152,192 @@ export const LocalLibraryForm = ({
           {/* 媒体库名称 */}
           <Input
             label="媒体库名称"
-            placeholder="例如：我的电影库"
+            placeholder="例如：我的媒体库"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             isInvalid={!!errors.name}
             errorMessage={errors.name}
             startContent={<span className="text-gray-400">📝</span>}
           />
+
+          {/* 媒体库类型 */}
+          <Select
+            label="媒体库类型"
+            selectedKeys={[formData.type]}
+            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+            className="w-full"
+            description="选择媒体库类型后，将显示相应的配置选项"
+          >
+            {LIBRARY_TYPES.map((type) => (
+              <SelectItem key={type.key}>
+                {type.label}
+              </SelectItem>
+            ))}
+          </Select>
+
+          {/* 动态表单区域 - 根据媒体类型显示不同的配置 */}
+          {formData.type && (
+            <div className="space-y-4 pt-2">
+              {/* 游戏类型的特殊配置 */}
+              {formData.type === "游戏" && (
+                <div className="space-y-4">
+                  <div className={clsx(
+                    "p-4 rounded-lg border-2 border-dashed",
+                    isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-300 bg-gray-50"
+                  )}>
+                    <h3 className={clsx("text-sm font-semibold mb-3", themeStyles.text)}>
+                      🎮 游戏库配置
+                    </h3>
+
+                    {/* 游戏数据库提供者 */}
+                    <Select
+                      label="游戏数据库提供者"
+                      placeholder="选择游戏数据库"
+                      className="w-full mb-3"
+                      description="用于获取游戏元数据和封面（可多选）"
+                      selectionMode="multiple"
+                      defaultSelectedKeys={["igdb", "dlsite"]}
+                      selectedKeys={internalGameProviders}
+                      onSelectionChange={(keys) => {
+                        const selected = Array.from(keys as Set<string>);
+                        setInternalGameProviders(selected);
+                      }}
+                      renderValue={(items) => {
+                        return (
+                          <div className="flex flex-wrap gap-2">
+                            {items.map((item) => (
+                              <Chip
+                                key={item.key}
+                                size="sm"
+                                color="primary"
+                                variant="flat"
+                              >
+                                {item.key === "igdb" ? "IGDB" :
+                                 item.key === "dlsite" ? "DLsite" :
+                                 item.key === "steamdb" ? "SteamDB" : item.textValue}
+                              </Chip>
+                            ))}
+                          </div>
+                        );
+                      }}
+                    >
+                      <SelectItem
+                        key="igdb"
+                        textValue="IGDB"
+                        description="全球最大的游戏数据库，支持主流游戏平台"
+                      >
+                        IGDB
+                      </SelectItem>
+                      <SelectItem
+                        key="dlsite"
+                        textValue="DLsite"
+                        description="日本同人游戏平台，丰富的日式RPG游戏（⚠️使用此库需要VPN）"
+                      >
+                        DLsite
+                      </SelectItem>
+                      <SelectItem
+                        key="steamdb"
+                        textValue="SteamDB"
+                        description="Steam 游戏数据库，适合 PC 游戏"
+                      >
+                        SteamDB
+                      </SelectItem>
+                    </Select>
+
+                    {/* 元数据存储方式 */}
+                    <Select
+                      label="元数据存储方式"
+                      placeholder="选择存储方式"
+                      className="w-full"
+                      description="选择如何存储游戏元数据"
+                      selectedKeys={formData.metadataStorage ? [formData.metadataStorage] : []}
+                      onChange={(e) => setFormData({ ...formData, metadataStorage: e.target.value })}
+                    >
+                      <SelectItem key="local">本地存储</SelectItem>
+                      <SelectItem key="database">数据库存储</SelectItem>
+                      <SelectItem key="mixed">混合存储</SelectItem>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {/* 漫画类型的特殊配置 */}
+              {formData.type === "漫画" && (
+                <div className="space-y-4">
+                  <div className={clsx(
+                    "p-4 rounded-lg border-2 border-dashed",
+                    isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-300 bg-gray-50"
+                  )}>
+                    <h3 className={clsx("text-sm font-semibold mb-3", themeStyles.text)}>
+                      📚 漫画库配置
+                    </h3>
+
+                    {/* 元数据存储方式 */}
+                    <Select
+                      label="元数据存储方式"
+                      placeholder="选择存储方式"
+                      className="w-full mb-3"
+                      description="选择如何存储漫画元数据"
+                      selectedKeys={formData.metadataStorage ? [formData.metadataStorage] : []}
+                      onChange={(e) => setFormData({ ...formData, metadataStorage: e.target.value })}
+                    >
+                      <SelectItem key="local">本地存储</SelectItem>
+                      <SelectItem key="database">数据库存储</SelectItem>
+                      <SelectItem key="mixed">混合存储</SelectItem>
+                    </Select>
+
+                    {/* 漫画格式支持 */}
+                    <Select
+                      label="支持的漫画格式"
+                      placeholder="选择支持的格式"
+                      className="w-full"
+                      selectionMode="multiple"
+                      description="选择要扫描的漫画文件格式"
+                      defaultSelectedKeys={["cbz", "cbr"]}
+                      selectedKeys={internalComicFormats}
+                      onSelectionChange={(keys) => {
+                        const selected = Array.from(keys as Set<string>);
+                        setInternalComicFormats(selected);
+                      }}
+                      renderValue={(items) => {
+                        return (
+                          <div className="flex flex-wrap gap-2">
+                            {items.map((item) => (
+                              <Chip
+                                key={item.key}
+                                size="sm"
+                                color="secondary"
+                                variant="flat"
+                              >
+                                {item.textValue}
+                              </Chip>
+                            ))}
+                          </div>
+                        );
+                      }}
+                    >
+                      <SelectItem key="cbz" textValue="CBZ">CBZ (ZIP压缩)</SelectItem>
+                      <SelectItem key="cbr" textValue="CBR">CBR (RAR压缩)</SelectItem>
+                      <SelectItem key="pdf" textValue="PDF">PDF</SelectItem>
+                      <SelectItem key="epub" textValue="EPUB">EPUB</SelectItem>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {/* 其他媒体类型可以在这里添加配置 */}
+              {!["游戏", "漫画"].includes(formData.type) && (
+                <div className={clsx(
+                  "p-4 rounded-lg text-center",
+                  isDark ? "bg-gray-800/50" : "bg-gray-50"
+                )}>
+                  <p className={clsx("text-sm", themeStyles.textSecondary)}>
+                    此媒体类型暂无额外配置选项
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 文件夹列表 */}
           <div className="space-y-2">
@@ -197,20 +403,6 @@ export const LocalLibraryForm = ({
               <p className="text-sm text-red-500">{errors.folders}</p>
             )}
           </div>
-
-          {/* 媒体库类型 */}
-          <Select
-            label="媒体库类型"
-            selectedKeys={[formData.type]}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-            className="w-full"
-          >
-            {LIBRARY_TYPES.map((type) => (
-              <SelectItem key={type.key}>
-                {type.label}
-              </SelectItem>
-            ))}
-          </Select>
         </ModalBody>
         <ModalFooter>
           <Button

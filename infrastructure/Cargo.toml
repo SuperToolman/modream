@@ -3,6 +3,10 @@ name = "infrastructure"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["gamebox"]
+gamebox = ["dep:gamebox", "domain/gamebox"]
+
 [dependencies]
 shared = {path = "../shared"}
 domain = {path = "../domain"}
@@ -24,3 +28,4 @@ num_cpus = "1.17.0" #用于获取系统的 CPU 核心数量信息
 bcrypt = "0.17.1"
 jsonwebtoken = { version = "10.1.0", features = ["rust_crypto"] }
 chrono = "0.4.42"
+gamebox = { version = "0.1.1", optional = true } # 游戏元数据爬虫库自己写的哈哈哈

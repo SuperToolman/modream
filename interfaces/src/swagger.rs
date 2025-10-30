@@ -1,8 +1,9 @@
 use utoipa::OpenApi;
-use application::dto::{LoginRequest, LoginResponse, RegisterRequest, UserInfo, MediaLibraryInfo, MangaInfo, PagedResponse, CreateMediaLibraryRequest, PaginationQuery};
+use application::dto::{LoginRequest, LoginResponse, RegisterRequest, UserInfo, MediaLibraryInfo, MangaInfo, GameInfo, PagedResponse, CreateMediaLibraryRequest, PaginationQuery};
 use domain::entity::user::Model as UserModel;
-use crate::api::{auth, user, media_library, manga, image};
+use crate::api::{auth, user, media_library, manga, image, game};
 use crate::api::image::ImageInfo;
+use crate::api::game::{ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPathRequest};
 
 /// API 文档
 #[derive(OpenApi)]
@@ -19,6 +20,13 @@ use crate::api::image::ImageInfo;
         image::get_manga_images,
         image::get_manga_image,
         image::get_manga_cover,
+        game::get_game,
+        game::get_games_paged,
+        game::scan_games,
+        game::delete_game,
+        game::get_games_by_media_library,
+        game::launch_game,
+        game::update_default_start_path,
     ),
     components(
         schemas(
@@ -30,9 +38,14 @@ use crate::api::image::ImageInfo;
             CreateMediaLibraryRequest,
             MediaLibraryInfo,
             MangaInfo,
+            GameInfo,
             PagedResponse<MangaInfo>,
+            PagedResponse<GameInfo>,
             PaginationQuery,
             ImageInfo,
+            ScanGamesRequest,
+            LaunchGameRequest,
+            UpdateDefaultStartPathRequest,
         )
     ),
     info(
@@ -57,6 +70,7 @@ use crate::api::image::ImageInfo;
         (name = "media_library", description = "媒体库相关接口"),
         (name = "manga", description = "漫画相关接口"),
         (name = "image", description = "图片相关接口"),
+        (name = "game", description = "游戏相关接口"),
     )
 )]
 pub struct ApiDoc;

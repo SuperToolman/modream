@@ -2,7 +2,6 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "overWeb",
   "version": "0.1.0",
-  // "identifier": "com.tauri.dev",
   "identifier": "com.tauri.build",
   "build": {
     "frontendDist": "../out",
