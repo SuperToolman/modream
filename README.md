@@ -1,6 +1,6 @@
 # 🎬 Modream（末梦）- 私有媒体库管理系统
 
-[![Version](https://img.shields.io/badge/version-0.3.3-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-15.3-black.svg)](https://nextjs.org/)

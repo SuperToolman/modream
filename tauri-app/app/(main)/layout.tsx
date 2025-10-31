@@ -8,10 +8,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <Sidebar />
 
             {/* 右侧主容器：包含导航栏和主内容 */}
-            <div className="flex-col ml-16 min-h-screen flex">
+            <div className="flex-col ml-16 h-screen flex">
                 <Navbar />
                 <main className="flex-1 overflow-hidden flex flex-col">
-                    <div className="px-4 py-4 overflow-y-auto flex-1 flex flex-col box-border">
+                    <div className="px-4 py-4 overflow-y-auto flex-1">
                         {children}
                     </div>
                 </main>

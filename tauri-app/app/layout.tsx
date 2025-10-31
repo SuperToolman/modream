@@ -17,12 +17,12 @@ export default function RootLayout({ children, }: { children: React.ReactNode; }
         <html suppressHydrationWarning lang="en">
             <head />{/* Next.js 会自动填充 head 标签内容 */}
             <body className={clsx(
-                "min-h-screen text-foreground bg-background font-sans antialiased", // 固定的样式名
+                "h-screen overflow-hidden text-foreground bg-background font-sans antialiased", // 固定的样式名
                 fontSans.variable,
             )}>
                 {/* themeProps: 主题配置，使用 class 属性切换主题，默认为深色主题 */}
                 <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
-                    <div className="min-h-screen">
+                    <div className="h-full">
                         {children}
                     </div>
                 </Providers>

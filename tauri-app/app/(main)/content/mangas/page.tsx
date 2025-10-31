@@ -65,15 +65,15 @@ export default function Mangas() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full">
+    <div className="flex flex-col h-full w-full relative">
       {/* 漫画网格容器 - 可滚动区域 */}
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center min-h-96">
             <div className="text-gray-500">加载中...</div>
           </div>
         ) : mangas.length > 0 ? (
-          <div className="p-8">
+          <div className="p-8 pb-32">
             <ResponsiveGrid minItemWidth={240} gap={24}>
               {mangas.map((manga, index) => {
                 // 构建完整的 cover URL
@@ -108,9 +108,9 @@ export default function Mangas() {
         )}
       </div>
 
-      {/* 分页组件 - 固定在底部 */}
+      {/* 分页组件 - 固定在内容区域底部 */}
       {totalPages > 1 && (
-        <div className="fixed bottom-0 left-0 right-0 flex justify-center py-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg z-40">
+        <div className="rounded-2xl absolute bottom-0 left-0 right-0 flex justify-center py-4 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 shadow-lg z-40">
           <Pagination
             total={totalPages}
             page={currentPage}

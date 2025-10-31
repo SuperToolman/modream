@@ -25,13 +25,13 @@ export function SinglePageView({
         <div className={`w-full h-screen flex justify-center items-center ${isFullscreen ? 'pt-4 pb-4' : 'pt-20 pb-4'}`}>
             <div className="relative group w-full h-full flex items-center justify-center overflow-hidden">
                 <div
-                    className="h-full flex items-center justify-center"
+                    className="h-full w-full flex items-center justify-center"
                     style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center' }}
                 >
                     <Image
                         alt={`第${currentPage}页`}
                         src={imageUrl}
-                        className="h-full max-w-full object-contain"
+                        className="h-full w-auto object-contain"
                         removeWrapper
                         isBlurred
                     />

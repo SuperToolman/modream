@@ -31,7 +31,7 @@ export function ScrollView({
             onMouseLeave={() => isFullscreen && onHideControls()}
         >
             <div
-                className="flex flex-col items-center gap-4 px-4 h-full"
+                className="flex flex-col items-center px-4 h-full"
                 style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
             >
                 {images.map((image, index) => (
@@ -43,7 +43,7 @@ export function ScrollView({
                         <Image
                             alt={`第${index + 1}页`}
                             src={getImageUrl(mangaId, image.index)}
-                            className="w-full h-auto object-contain shadow-lg rounded-lg"
+                            className="w-full h-auto object-contain"
                             removeWrapper
                             isBlurred
                         />
