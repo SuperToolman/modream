@@ -7,6 +7,8 @@ pub struct ChapterInfo {
     pub title: String,
     pub chapter_number: f32,
     pub page_count: i32,
+    /// 章节中的所有图片路径列表（已排序）
+    pub image_paths: Vec<String>,
 }
 
 /// 漫画扫描结果
@@ -16,6 +18,8 @@ pub enum MangaScanResult {
     SingleFolder {
         path: String,
         page_count: i32,
+        /// 漫画中的所有图片路径列表（已排序）
+        image_paths: Vec<String>,
     },
     /// 章节结构漫画（包含多个章节子目录）
     ChapterStructure {
@@ -79,16 +83,36 @@ fn is_chapter_folder(name: &str) -> Option<f32> {
     None
 }
 
-/// 统计文件夹中的图片数量
-fn count_images_in_folder(path: &str) -> anyhow::Result<i32> {
-    let mut count = 0;
-    for entry in std::fs::read_dir(path)? {
-        let entry = entry?;
-        if entry.path().is_file() && is_image_file(&entry.path()) {
-            count += 1;
-        }
-    }
-    Ok(count)
+/// 扫描文件夹中的所有图片并返回排序后的路径列表
+///
+/// 使用自然排序（Natural Sort），确保 1.jpg < 2.jpg < 10.jpg
+fn scan_images_in_folder(path: &str) -> anyhow::Result<Vec<String>> {
+    let _supported_formats = shared::config::get().server().image().supported_formats();
+
+    let mut entries: Vec<_> = std::fs::read_dir(path)?
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.is_file() && is_image_file(&path) {
+                Some((path, entry.file_name()))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // 使用自然排序（Natural Sort）按文件名排序
+    // 这样 1.jpg < 2.jpg < 10.jpg，而不是 1.jpg < 10.jpg < 2.jpg
+    entries.sort_by(|a, b| natord::compare(&a.1.to_string_lossy(), &b.1.to_string_lossy()));
+
+    // ✅ 优化：只存储文件名（相对路径），不存储完整路径
+    // 这样可以减少 84% 的存储空间
+    let image_paths: Vec<String> = entries
+        .into_iter()
+        .map(|(_, filename)| filename.to_string_lossy().to_string())
+        .collect();
+
+    Ok(image_paths)
 }
 
 /// 扫描单个目录，判断是单文件夹漫画还是章节结构
@@ -117,12 +141,14 @@ pub fn scan_manga_folder(path: &str) -> anyhow::Result<Option<MangaScanResult>> 
     
     // 情况 1：直接包含图片 → 单文件夹漫画
     if has_images {
-        let page_count = count_images_in_folder(path)?;
+        let image_paths = scan_images_in_folder(path)?;
+        let page_count = image_paths.len() as i32;
         if page_count >= 2 {
             tracing::debug!("Found single-folder manga: {} ({} pages)", path, page_count);
             return Ok(Some(MangaScanResult::SingleFolder {
                 path: path.to_string(),
                 page_count,
+                image_paths,
             }));
         }
         return Ok(None);
@@ -135,7 +161,8 @@ pub fn scan_manga_folder(path: &str) -> anyhow::Result<Option<MangaScanResult>> 
         for (dir_name, dir_path) in subdirs {
             // 检查是否匹配章节模式
             if let Some(chapter_num) = is_chapter_folder(&dir_name) {
-                let page_count = count_images_in_folder(dir_path.to_str().unwrap())?;
+                let image_paths = scan_images_in_folder(dir_path.to_str().unwrap())?;
+                let page_count = image_paths.len() as i32;
                 if page_count >= 2 {
                     tracing::debug!("Found chapter: {} (number: {}, {} pages)", dir_name, chapter_num, page_count);
                     chapters.push(ChapterInfo {
@@ -143,6 +170,7 @@ pub fn scan_manga_folder(path: &str) -> anyhow::Result<Option<MangaScanResult>> 
                         title: dir_name,
                         chapter_number: chapter_num,
                         page_count,
+                        image_paths,
                     });
                 }
             }

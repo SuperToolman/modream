@@ -29,3 +29,4 @@ bcrypt = "0.17.1"
 jsonwebtoken = { version = "10.1.0", features = ["rust_crypto"] }
 chrono = "0.4.42"
 gamebox = { version = "0.1.1", optional = true } # 游戏元数据爬虫库自己写的哈哈哈
+natord = "1.0.9" # 自然排序库

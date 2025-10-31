@@ -30,25 +30,26 @@ impl ImageService {
         Self {
             manga_repo,
             manga_chapter_repo,
-            // 图片列表缓存：5 分钟 TTL，最多缓存 1000 个漫画的图片列表
+            // 图片列表缓存：1 小时 TTL，最多缓存 1000 个漫画的图片列表
+            // 图片列表不会频繁变化，可以缓存更长时间
             image_list_cache: Cache::builder()
                 .max_capacity(1000)
-                .time_to_live(Duration::from_secs(300)) // 5 分钟
+                .time_to_live(Duration::from_secs(3600)) // 1 小时
                 .build(),
-            // Manga 实体缓存：5 分钟 TTL，最多缓存 1000 个漫画实体
+            // Manga 实体缓存：1 小时 TTL，最多缓存 1000 个漫画实体
             manga_cache: Cache::builder()
                 .max_capacity(1000)
-                .time_to_live(Duration::from_secs(300)) // 5 分钟
+                .time_to_live(Duration::from_secs(3600)) // 1 小时
                 .build(),
-            // 章节图片列表缓存：5 分钟 TTL，最多缓存 1000 个章节的图片列表
+            // 章节图片列表缓存：1 小时 TTL，最多缓存 1000 个章节的图片列表
             chapter_image_list_cache: Cache::builder()
                 .max_capacity(1000)
-                .time_to_live(Duration::from_secs(300)) // 5 分钟
+                .time_to_live(Duration::from_secs(3600)) // 1 小时
                 .build(),
-            // 章节实体缓存：5 分钟 TTL，最多缓存 1000 个章节实体
+            // 章节实体缓存：1 小时 TTL，最多缓存 1000 个章节实体
             chapter_cache: Cache::builder()
                 .max_capacity(1000)
-                .time_to_live(Duration::from_secs(300)) // 5 分钟
+                .time_to_live(Duration::from_secs(3600)) // 1 小时
                 .build(),
         }
     }
@@ -66,8 +67,22 @@ impl ImageService {
         // 缓存未命中，从数据库获取 manga 信息
         let manga = self.get_manga_from_cache_or_db(manga_id).await?;
 
-        // 异步扫描文件夹获取图片列表
-        let images = self.scan_images_in_folder(&manga.path).await?;
+        // ✅ 优先从数据库读取图片路径列表
+        let images = if let Some(relative_paths) = manga.get_image_paths() {
+            tracing::debug!("Image paths found in database for manga_id: {}", manga_id);
+            // ✅ 将相对路径（文件名）转换为完整路径
+            relative_paths
+                .into_iter()
+                .map(|filename| {
+                    let path = std::path::Path::new(&manga.path).join(&filename);
+                    path.to_string_lossy().to_string()
+                })
+                .collect()
+        } else {
+            // 如果数据库中没有，则扫描文件夹
+            tracing::debug!("Image paths not found in database, scanning folder for manga_id: {}", manga_id);
+            self.scan_images_in_folder(&manga.path).await?
+        };
 
         // 存入缓存
         self.image_list_cache.insert(manga_id, Arc::new(images.clone())).await;
@@ -122,10 +137,36 @@ impl ImageService {
     ///
     /// 如果 cover 字段是 API 路径格式（如 `/manga/1/cover`），则获取漫画文件夹中的第一张图片
     /// 否则直接使用 cover 字段作为文件系统路径
+    ///
+    /// **章节漫画支持：**
+    /// - 如果 `has_chapters = true`，自动获取第一章的封面
     pub async fn get_manga_cover_path(&self, manga_id: i32) -> anyhow::Result<String> {
         // 从缓存或数据库获取 manga 信息
         let manga = self.get_manga_from_cache_or_db(manga_id).await?;
 
+        tracing::debug!("Getting cover path for manga {}, has_chapters: {}", manga_id, manga.has_chapters);
+
+        // ✅ 如果是章节漫画，获取第一章的封面
+        if manga.has_chapters {
+            tracing::debug!("Manga {} has chapters, getting first chapter cover", manga_id);
+
+            // 查询所有章节
+            let chapters = self.manga_chapter_repo.find_by_manga_id(manga_id).await?;
+
+            // 按章节号排序，获取第一章
+            let first_chapter = chapters
+                .into_iter()
+                .min_by(|a, b| a.chapter_number.partial_cmp(&b.chapter_number).unwrap_or(std::cmp::Ordering::Equal))
+                .ok_or_else(|| anyhow::anyhow!("No chapters found for manga {}", manga_id))?;
+
+            tracing::debug!("Using chapter {} (number: {}) as cover for manga {}",
+                first_chapter.id, first_chapter.chapter_number, manga_id);
+
+            // 使用第一章的封面路径
+            return self.get_chapter_cover_path(first_chapter.id).await;
+        }
+
+        // ✅ 单文件夹漫画：使用原有逻辑
         // 如果 cover 是 API 路径格式（以 / 开头），则获取第一张图片
         if let Some(cover) = &manga.cover {
             if cover.starts_with("/manga/") || cover.starts_with("/api/manga/") {
@@ -322,8 +363,22 @@ impl ImageService {
         // 缓存未命中，从数据库获取章节信息
         let chapter = self.get_chapter_from_cache_or_db(chapter_id).await?;
 
-        // 异步扫描文件夹获取图片列表
-        let images = self.scan_images_in_folder(&chapter.path).await?;
+        // ✅ 优先从数据库读取图片路径列表
+        let images = if let Some(relative_paths) = chapter.get_image_paths() {
+            tracing::debug!("Image paths found in database for chapter_id: {}", chapter_id);
+            // ✅ 将相对路径（文件名）转换为完整路径
+            relative_paths
+                .into_iter()
+                .map(|filename| {
+                    let path = std::path::Path::new(&chapter.path).join(&filename);
+                    path.to_string_lossy().to_string()
+                })
+                .collect()
+        } else {
+            // 如果数据库中没有，则扫描文件夹
+            tracing::debug!("Image paths not found in database, scanning folder for chapter_id: {}", chapter_id);
+            self.scan_images_in_folder(&chapter.path).await?
+        };
 
         // 存入缓存
         self.chapter_image_list_cache.insert(chapter_id, Arc::new(images.clone())).await;

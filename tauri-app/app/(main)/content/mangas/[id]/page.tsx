@@ -99,8 +99,15 @@ export default function MangaDetail({ params }: MangaDetailProps) {
     }
 
     // 构建完整的 cover URL
+    // 直接使用 manga.cover 字段，它已经包含了正确的路径
+    // - 非章节漫画: /manga/{id}/cover
+    // - 章节漫画: /manga_chapter/{id}/cover
     const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
-    const coverUrl = manga.cover ? `${baseURL}${manga.cover}` : undefined;
+    const coverUrl = manga.cover
+        ? `${baseURL}${manga.cover}?width=300&height=400&quality=85`
+        : undefined;
+    
+
 
     // 判断是否有作者
     const hasAuthor = manga.author_id !== null && manga.author_id !== undefined;
@@ -270,7 +277,7 @@ export default function MangaDetail({ params }: MangaDetailProps) {
                                                             <div className="relative w-12 h-16 flex-shrink-0 overflow-hidden rounded">
                                                                 <Image
                                                                     alt={chapter.title}
-                                                                    src={mangaChaptersApi.getCoverUrl(manga.id, chapter.id, 100, 133, 80)}
+                                                                    src={mangaChaptersApi.getCoverUrl(manga.id, 100, 133, 80)}
                                                                     className="w-full h-full object-cover"
                                                                     removeWrapper
                                                                 />

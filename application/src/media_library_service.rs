@@ -2,6 +2,7 @@ use domain::repository::{MediaLibraryRepository, MangaRepository, MangaChapterRe
 use infrastructure::file_scanner;
 use std::sync::Arc;
 use crate::dto::CreateMediaLibraryRequest;
+use crate::image_service::ImageService;
 
 /// 媒体库服务
 pub struct MediaLibraryService {
@@ -9,6 +10,7 @@ pub struct MediaLibraryService {
     manga_repo: Arc<dyn MangaRepository>,
     manga_chapter_repo: Arc<dyn MangaChapterRepository>,
     game_repo: Arc<dyn GameRepository>,
+    image_service: Arc<ImageService>,
 }
 
 impl MediaLibraryService {
@@ -18,12 +20,14 @@ impl MediaLibraryService {
         manga_repo: Arc<dyn MangaRepository>,
         manga_chapter_repo: Arc<dyn MangaChapterRepository>,
         game_repo: Arc<dyn GameRepository>,
+        image_service: Arc<ImageService>,
     ) -> Self {
         Self {
             media_library_repo,
             manga_repo,
             manga_chapter_repo,
             game_repo,
+            image_service,
         }
     }
 
@@ -102,6 +106,10 @@ impl MediaLibraryService {
             aggregate.media_library.update_config(config_json)?;
         }
 
+        // 保存扫描结果中的图片路径列表，用于后续存储到数据库
+        let mut manga_image_paths_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut chapter_image_paths_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+
         // 如果是可扫描类型，扫描并添加相应的媒体
         if aggregate.is_scannable() {
             match req.media_type.as_str() {
@@ -112,18 +120,27 @@ impl MediaLibraryService {
                     let mut total_added = 0;
                     for result in scan_results {
                         match result {
-                            infrastructure::file_scanner::MangaScanResult::SingleFolder { path, page_count } => {
+                            infrastructure::file_scanner::MangaScanResult::SingleFolder { path, page_count, image_paths } => {
                                 // 单文件夹漫画
                                 let byte_size = domain::service::MangaDomainService::calculate_folder_byte_size(&path);
+
+                                // 保存图片路径列表（用于后续存储到数据库）
+                                manga_image_paths_map.insert(path.clone(), image_paths);
+
                                 aggregate.add_mangas_batch(vec![(path, page_count, byte_size)])?;
                                 total_added += 1;
                             }
                             infrastructure::file_scanner::MangaScanResult::ChapterStructure { root_path, chapters } => {
                                 // 章节结构漫画
                                 let chapter_data: Vec<(String, String, f32, i32)> = chapters
-                                    .into_iter()
-                                    .map(|ch| (ch.path, ch.title, ch.chapter_number, ch.page_count))
+                                    .iter()
+                                    .map(|ch| (ch.path.clone(), ch.title.clone(), ch.chapter_number, ch.page_count))
                                     .collect();
+
+                                // 保存章节图片路径列表（用于后续存储到数据库）
+                                for ch in &chapters {
+                                    chapter_image_paths_map.insert(ch.path.clone(), ch.image_paths.clone());
+                                }
 
                                 aggregate.add_manga_with_chapters(root_path, chapter_data)?;
                                 total_added += 1;
@@ -163,6 +180,11 @@ impl MediaLibraryService {
             let mut mangas = aggregate.mangas;
             for manga in &mut mangas {
                 manga.media_library_id = media_library.id;
+
+                // ✅ 设置图片路径列表（从扫描结果中获取）
+                if let Some(image_paths) = manga_image_paths_map.get(&manga.path) {
+                    manga.set_image_paths(image_paths.clone());
+                }
             }
 
             // 批量插入漫画
@@ -170,6 +192,14 @@ impl MediaLibraryService {
 
             // 批量更新漫画封面为 API URL
             self.update_manga_covers_to_api_urls(created_mangas.clone()).await?;
+
+            // ✅ 预热图片列表缓存（避免第一次请求时扫描文件夹）
+            tracing::info!("Preheating image cache for {} mangas", created_mangas.len());
+            for manga in &created_mangas {
+                // 调用 get_manga_images() 会自动填充缓存
+                let _ = self.image_service.get_manga_images(manga.id).await;
+            }
+            tracing::info!("Image cache preheated successfully");
 
             // 批量创建章节（如果有）
             if !aggregate.manga_chapters.is_empty() {
@@ -182,7 +212,7 @@ impl MediaLibraryService {
                     .map(|m| (m.path.clone(), m.id))
                     .collect();
 
-                // 更新章节的 manga_id
+                // 更新章节的 manga_id 和图片路径列表
                 for chapter in &mut chapters {
                     // 从章节路径中提取漫画根路径
                     let chapter_path = std::path::Path::new(&chapter.path);
@@ -192,6 +222,11 @@ impl MediaLibraryService {
                             chapter.manga_id = manga_id;
                         }
                     }
+
+                    // ✅ 设置图片路径列表（从扫描结果中获取）
+                    if let Some(image_paths) = chapter_image_paths_map.get(&chapter.path) {
+                        chapter.set_image_paths(image_paths.clone());
+                    }
                 }
 
                 // 批量插入章节
@@ -199,7 +234,15 @@ impl MediaLibraryService {
                 tracing::info!("Created {} chapters for {} mangas", created_chapters.len(), created_mangas.len());
 
                 // 批量更新章节封面为 API URL
-                self.update_chapter_covers_to_api_urls(created_chapters).await?;
+                self.update_chapter_covers_to_api_urls(created_chapters.clone()).await?;
+
+                // ✅ 预热章节图片列表缓存
+                tracing::info!("Preheating chapter image cache for {} chapters", created_chapters.len());
+                for chapter in &created_chapters {
+                    // 调用 get_chapter_images() 会自动填充缓存
+                    let _ = self.image_service.get_chapter_images(chapter.id).await;
+                }
+                tracing::info!("Chapter image cache preheated successfully");
             }
         }
 
@@ -221,8 +264,12 @@ impl MediaLibraryService {
     }
     // region: 辅助方法
     /// 更新 Manga 的 cover 字段为相对路径标记（使用批量更新）
-    /// 格式为 `/manga/{id}/cover`，用于标记这是一个 API 路径
-    /// 实际的封面文件会从漫画文件夹中的第一张图片获取
+    ///
+    /// **根据漫画类型设置不同的 cover 值：**
+    /// - **非章节漫画** (`has_chapters = false`): `/manga/{manga_id}/cover`
+    /// - **章节漫画** (`has_chapters = true`): `/manga_chapter/{manga_id}/cover`
+    ///
+    /// 实际的封面文件会从漫画文件夹或第一章文件夹中的第一张图片获取
     ///
     /// # 性能优化
     /// - 使用事务批量更新，减少数据库往返次数
@@ -239,8 +286,14 @@ impl MediaLibraryService {
         let updated_mangas: Vec<domain::entity::manga::Model> = mangas
             .into_iter()
             .map(|mut manga| {
-                // 生成相对路径标记（不包含 /api 前缀）
-                manga.cover = Some(format!("/manga/{}/cover", manga.id));
+                // ✅ 根据 has_chapters 字段设置不同的 cover 路径
+                manga.cover = if manga.has_chapters {
+                    // 章节漫画：使用 /manga_chapter/{id}/cover
+                    Some(format!("/manga_chapter/{}/cover", manga.id))
+                } else {
+                    // 非章节漫画：使用 /manga/{id}/cover
+                    Some(format!("/manga/{}/cover", manga.id))
+                };
                 manga.update_time = now.clone();
                 manga
             })

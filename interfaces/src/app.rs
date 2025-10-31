@@ -33,11 +33,11 @@ impl AppState {
         // 创建 Application 层的服务
         let user_service = Arc::new(UserService::new(user_repo));
         let auth_service = Arc::new(AuthService::new(user_service.clone()));
-        let media_library_service = Arc::new(MediaLibraryService::new(media_library_repo, manga_repo.clone(), manga_chapter_repo.clone(), game_repo.clone()));
+        let image_service = Arc::new(ImageService::new(manga_repo.clone(), manga_chapter_repo.clone()));
+        let media_library_service = Arc::new(MediaLibraryService::new(media_library_repo, manga_repo.clone(), manga_chapter_repo.clone(), game_repo.clone(), image_service.clone()));
         let manga_service = Arc::new(MangaService::new(manga_repo.clone()));
         let manga_chapter_service = Arc::new(application::manga_chapter_service::MangaChapterService::new(manga_chapter_repo.clone()));
         let game_service = Arc::new(GameService::new(game_repo));
-        let image_service = Arc::new(ImageService::new(manga_repo, manga_chapter_repo));
 
         AppState {
             user_service,

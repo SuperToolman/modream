@@ -35,7 +35,7 @@ pub struct ThumbnailQuery {
 // region: 获取漫画的所有章节
 #[utoipa::path(
     get,
-    path = "/api/manga/{mangaId}/chapters",
+    path = "/api/manga_chapter/{mangaId}/chapters",
     tag = "manga_chapter",
     responses(
         (status = 200, description = "获取成功", body = ApiResponse<Vec<MangaChapterInfo>>),
@@ -182,10 +182,20 @@ pub async fn get_chapter_image(
 }
 // endregion
 
-// region: 获取章节的封面缩略图
+// region: 获取章节漫画的封面缩略图
+
+/// 获取章节漫画的封面缩略图
+///
+/// **注意：** 此接口总是返回第一章的第一张图片作为封面
+/// 内部会自动查询第一章并获取其封面
+///
+/// 支持查询参数：
+/// - `width`: 缩略图宽度（像素），默认 200
+/// - `height`: 缩略图高度（像素），默认 300
+/// - `quality`: 图片质量（0-100），默认 85
 #[utoipa::path(
     get,
-    path = "/api/manga_chapter/{mangaId}/{chapterId}/cover",
+    path = "/api/manga_chapter/{mangaId}/cover",
     tag = "manga_chapter",
     params(
         ("width" = Option<u32>, Query, description = "缩略图宽度，默认 200"),
@@ -199,12 +209,13 @@ pub async fn get_chapter_image(
 )]
 pub async fn get_chapter_cover(
     State(AppState { image_service, .. }): State<AppState>,
-    Path((_manga_id, chapter_id)): Path<(i32, i32)>,
+    Path(manga_id): Path<i32>,
     Query(params): Query<ThumbnailQuery>,
 ) -> ApiResult<impl IntoResponse> {
-    // ✅ 获取缩略图
+    // ✅ 使用 get_manga_cover_thumbnail，它会自动处理章节漫画
+    // 内部逻辑：检查 has_chapters 字段，如果为 true，自动获取第一章的封面
     let thumbnail_data = image_service
-        .get_chapter_cover_thumbnail(chapter_id, params.width, params.height, params.quality)
+        .get_manga_cover_thumbnail(manga_id, params.width, params.height, params.quality)
         .await
         .map_err(|e| AppError::Biz(e.to_string()))?;
 
@@ -242,6 +253,7 @@ pub async fn get_chapter_cover(
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/{manga_id}/chapters", routing::get(get_manga_chapters))
+        .route("/{manga_id}/cover", routing::get(get_chapter_cover))  // 获取第一章的封面
         .route(
             "/{manga_id}/{chapter_id}/images",
             routing::get(get_chapter_images),
@@ -249,10 +261,6 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/{manga_id}/{chapter_id}/images/{image_index}",
             routing::get(get_chapter_image),
-        )
-        .route(
-            "/{manga_id}/{chapter_id}/cover",
-            routing::get(get_chapter_cover),
         )
 }
 

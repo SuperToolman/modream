@@ -58,6 +58,7 @@ impl MangaService {
             media_library_id: req.media_library_id,
             cover: req.cover,
             has_chapters: false, // 默认为单文件夹漫画
+            image_paths: None, // 初始为空，后续可以通过扫描填充
             create_time: now.clone(),
             update_time: now,
         };
@@ -84,6 +85,7 @@ impl MangaService {
                     media_library_id: req.media_library_id,
                     cover: req.cover,
                     has_chapters: false, // 默认为单文件夹漫画
+                    image_paths: None, // 初始为空，后续可以通过扫描填充
                     create_time: now.clone(),
                     update_time: now,
                 }

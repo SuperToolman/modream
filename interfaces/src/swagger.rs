@@ -1,8 +1,8 @@
 use utoipa::OpenApi;
 use application::dto::{LoginRequest, LoginResponse, RegisterRequest, UserInfo, MediaLibraryInfo, MangaInfo, MangaChapterInfo, GameInfo, PagedResponse, CreateMediaLibraryRequest, PaginationQuery};
 use domain::entity::user::Model as UserModel;
-use crate::api::{auth, user, media_library, manga, image, manga_chapter, game};
-use crate::api::image::ImageInfo;
+use crate::api::{auth, user, media_library, manga, manga_chapter, game};
+use crate::api::manga::{ImageInfo, OptimizedImageListResponse};
 use crate::api::manga_chapter::OptimizedChapterImageListResponse;
 use crate::api::game::{ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPathRequest};
 
@@ -18,9 +18,9 @@ use crate::api::game::{ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPa
         media_library::get_manga_by_media_library,
         manga::get_manga,
         manga::get_manga_paged,
-        image::get_manga_images,
-        image::get_manga_image,
-        image::get_manga_cover,
+        manga::get_manga_images,
+        manga::get_manga_image,
+        manga::get_manga_cover,
         manga_chapter::get_manga_chapters,
         manga_chapter::get_chapter_images,
         manga_chapter::get_chapter_image,
@@ -44,6 +44,7 @@ use crate::api::game::{ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPa
             MediaLibraryInfo,
             MangaInfo,
             MangaChapterInfo,
+            OptimizedImageListResponse,
             OptimizedChapterImageListResponse,
             GameInfo,
             PagedResponse<MangaInfo>,

@@ -41,6 +41,7 @@ impl MangaChapterRepository for MangaChapterRepositoryImpl {
             page_count: Set(chapter.page_count),
             byte_size: Set(chapter.byte_size),
             cover: Set(chapter.cover),
+            image_paths: Set(chapter.image_paths),
         };
 
         let created_chapter = active_model.insert(&*self.db).await?;
@@ -84,6 +85,7 @@ impl MangaChapterRepository for MangaChapterRepositoryImpl {
                     page_count: Set(chapter.page_count),
                     byte_size: Set(chapter.byte_size),
                     cover: Set(chapter.cover.clone()),
+                    image_paths: Set(chapter.image_paths.clone()),
                 })
                 .collect();
 
@@ -114,6 +116,7 @@ impl MangaChapterRepository for MangaChapterRepositoryImpl {
             page_count: Set(chapter.page_count),
             byte_size: Set(chapter.byte_size),
             cover: Set(chapter.cover),
+            image_paths: Set(chapter.image_paths),
         };
 
         let updated_chapter = active_model.update(&*self.db).await?;
@@ -144,6 +147,7 @@ impl MangaChapterRepository for MangaChapterRepositoryImpl {
                 page_count: Set(chapter.page_count),
                 byte_size: Set(chapter.byte_size),
                 cover: Set(chapter.cover),
+                image_paths: Set(chapter.image_paths),
             };
 
             let updated_chapter = active_model.update(&txn).await?;

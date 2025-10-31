@@ -25,6 +25,8 @@ pub struct Model {
     pub byte_size: i32,
     #[sea_orm(column_name = "Cover", column_type = "Text", nullable)]
     pub cover: Option<String>,
+    #[sea_orm(column_name = "ImagePaths", column_type = "Text", nullable)]
+    pub image_paths: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -94,6 +96,7 @@ impl Model {
             page_count,
             byte_size,
             cover: None,
+            image_paths: None,
             create_time: now.clone(),
             update_time: now,
         })
@@ -112,6 +115,31 @@ impl Model {
     /// 更新封面
     pub fn update_cover(&mut self, new_cover: Option<String>) {
         self.cover = new_cover;
+        self.update_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    }
+
+    /// 设置图片路径列表
+    ///
+    /// # 参数
+    /// - `paths`: 图片路径列表
+    pub fn set_image_paths(&mut self, paths: Vec<String>) {
+        self.image_paths = Some(serde_json::to_string(&paths).unwrap());
+        self.update_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    }
+
+    /// 获取图片路径列表
+    ///
+    /// # 返回
+    /// - `Option<Vec<String>>` - 图片路径列表
+    pub fn get_image_paths(&self) -> Option<Vec<String>> {
+        self.image_paths.as_ref().and_then(|json| {
+            serde_json::from_str(json).ok()
+        })
+    }
+
+    /// 清除图片路径列表
+    pub fn clear_image_paths(&mut self) {
+        self.image_paths = None;
         self.update_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     }
 }

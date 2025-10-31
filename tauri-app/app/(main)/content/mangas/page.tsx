@@ -33,9 +33,12 @@ export default function Mangas() {
         // 预加载首屏图片
         if (response.items && response.items.length > 0) {
           const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
+          // 使用 manga.cover 字段（已根据漫画类型存储了正确的路径）
           const imageUrls = response.items
-            .filter(item => item.cover)
-            .map(item => `${baseURL}${item.cover}`);
+            .filter(item => item.cover) // 过滤掉没有 cover 的漫画
+            .map(item =>
+              `${baseURL}${item.cover}?width=200&height=300&quality=85`
+            );
 
           // 异步预加载，不阻塞页面渲染
           preloadPriority(imageUrls, 4).catch(err => {
@@ -74,8 +77,12 @@ export default function Mangas() {
             <ResponsiveGrid minItemWidth={240} gap={24}>
               {mangas.map((manga, index) => {
                 // 构建完整的 cover URL
+                // 使用 manga.cover 字段（已根据漫画类型存储了正确的路径）
                 const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
-                const coverUrl = manga.cover ? `${baseURL}${manga.cover}` : undefined;
+                const coverUrl = manga.cover
+                  ? `${baseURL}${manga.cover}?width=200&height=300&quality=85`
+                  : undefined;
+
                 // 前 4 个卡片设置为优先加载（首屏）
                 const isPriority = index < 4;
 
