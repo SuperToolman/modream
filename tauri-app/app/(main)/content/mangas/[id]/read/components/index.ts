@@ -4,4 +4,5 @@ export { DoublePageView } from './DoublePageView';
 export { ScrollView } from './ScrollView';
 export { LoadingState } from './LoadingState';
 export { ErrorState } from './ErrorState';
+export { ChapterSelector } from './ChapterSelector';
 

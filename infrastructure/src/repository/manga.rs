@@ -62,6 +62,7 @@ impl MangaRepository for MangaRepositoryImpl {
             author_id: Set(manga.author_id),
             media_library_id: Set(manga.media_library_id),
             cover: Set(manga.cover),
+            has_chapters: Set(manga.has_chapters),
         };
 
         let created_manga = active_model.insert(&self.db).await?;
@@ -107,6 +108,7 @@ impl MangaRepository for MangaRepositoryImpl {
                     author_id: Set(manga.author_id),
                     media_library_id: Set(manga.media_library_id),
                     cover: Set(manga.cover.clone()),
+                    has_chapters: Set(manga.has_chapters),
                 })
                 .collect();
 
@@ -140,6 +142,7 @@ impl MangaRepository for MangaRepositoryImpl {
             author_id: Set(manga.author_id),
             media_library_id: Set(manga.media_library_id),
             cover: Set(manga.cover),
+            has_chapters: Set(manga.has_chapters),
         };
 
         let updated_manga = active_model.update(&self.db).await?;
@@ -172,6 +175,7 @@ impl MangaRepository for MangaRepositoryImpl {
                 author_id: Set(manga.author_id),
                 media_library_id: Set(manga.media_library_id),
                 cover: Set(manga.cover),
+                has_chapters: Set(manga.has_chapters),
             };
 
             let updated_manga = active_model.update(&txn).await?;

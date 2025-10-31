@@ -9,7 +9,8 @@ import {
     DoublePageView,
     ScrollView,
     LoadingState,
-    ErrorState
+    ErrorState,
+    ChapterSelector
 } from './components';
 import {
     useMangaData,
@@ -26,9 +27,13 @@ export default function Read() {
 
     const mangaId = parseInt(params.id as string, 10);
     const currentPageParam = parseInt(searchParams.get('page') || '1');
+    const chapterIdParam = searchParams.get('chapter') ? parseInt(searchParams.get('chapter')!, 10) : null;
 
     // 使用自定义 Hooks
-    const { manga, images, loading, error } = useMangaData(mangaId);
+    const { manga, chapters, currentChapter, images, loading, error, setCurrentChapter } = useMangaData({
+        mangaId,
+        chapterId: chapterIdParam,
+    });
     const { currentPage, setCurrentPage, handlePrevPage, handleNextPage } = usePageNavigation({
         mangaId,
         initialPage: currentPageParam,
@@ -95,9 +100,18 @@ export default function Read() {
         );
     }
 
-    // 获取当前页的图片 URL
+    // 章节切换处理
+    const handleChapterChange = (chapter: typeof currentChapter) => {
+        if (chapter) {
+            setCurrentChapter(chapter);
+            setCurrentPage(1);
+            router.push(`/content/mangas/${mangaId}/read?chapter=${chapter.id}&page=1`);
+        }
+    };
+
+    // 获取当前页的图片 URL（useMangaData 已经生成了正确的 URL）
     const currentImage = images[currentPage - 1];
-    const currentImageUrl = currentImage ? mangasApi.getImageUrl(mangaId, currentImage.index) : undefined;
+    const currentImageUrl = currentImage?.url;
 
     return (
         <div className={`${
@@ -105,6 +119,17 @@ export default function Read() {
                 ? 'fixed inset-0 z-50 bg-black flex flex-col'
                 : 'fixed inset-0 bg-gray-50 dark:bg-gray-900 flex flex-col'
         }`}>
+            {/* 章节选择器（仅章节漫画显示） */}
+            {manga?.has_chapters && chapters.length > 0 && !isFullscreen && (
+                <div className="fixed top-16 left-0 right-0 z-40 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+                    <ChapterSelector
+                        chapters={chapters}
+                        currentChapter={currentChapter}
+                        onChapterChange={handleChapterChange}
+                    />
+                </div>
+            )}
+
             {/* 右侧悬浮控制面板 */}
             <ReadingControls
                 currentPage={currentPage}
@@ -140,7 +165,7 @@ export default function Read() {
                     ) : readingMode === 'double' ? (
                         <DoublePageView
                             currentImageUrl={currentImageUrl}
-                            prevImageUrl={currentPage > 1 ? mangasApi.getImageUrl(mangaId, images[currentPage - 2]?.index || 0) : undefined}
+                            prevImageUrl={currentPage > 1 ? images[currentPage - 2]?.url : undefined}
                             currentPage={currentPage}
                             isFullscreen={isFullscreen}
                             zoom={zoom}
@@ -152,7 +177,7 @@ export default function Read() {
                             isFullscreen={isFullscreen}
                             zoom={zoom}
                             mangaTitle={manga?.title}
-                            getImageUrl={mangasApi.getImageUrl}
+                            getImageUrl={(_, index) => images[index]?.url || ''}
                             onShowControls={() => setShowControls(true)}
                             onHideControls={() => setShowControls(false)}
                         />

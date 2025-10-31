@@ -22,6 +22,7 @@ import { settingsApi } from './settings';
 import { commonApi } from './common';
 import { media_librariesApi } from './media_libraries';
 import { mangasApi } from './mangas';
+import { mangaChaptersApi } from './manga-chapters';
 import { gamesApi } from './games';
 
 // 导出各个模块
@@ -32,6 +33,7 @@ export { settingsApi } from './settings';
 export { commonApi } from './common';
 export { media_librariesApi } from './media_libraries';
 export { mangasApi } from './mangas';
+export { mangaChaptersApi } from './manga-chapters';
 export { gamesApi } from './games';
 
 // 创建统一的 API 对象
@@ -43,6 +45,7 @@ export const api = {
   common: commonApi,
   mediaLibraries: media_librariesApi,
   mangas: mangasApi,
+  mangaChapters: mangaChaptersApi,
   games: gamesApi,
 };
 

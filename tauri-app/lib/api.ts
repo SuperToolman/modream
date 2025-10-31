@@ -21,7 +21,7 @@
  */
 
 // 导出所有 API 模块和统一的 API 对象
-export { authApi, userApi, videoApi, settingsApi, commonApi, media_librariesApi, mangasApi, gamesApi, api } from './api/index';
+export { authApi, userApi, videoApi, settingsApi, commonApi, media_librariesApi, mangasApi, mangaChaptersApi, gamesApi, api } from './api/index';
 
 // 导出所有类型
 export type * from '@/types/dto';

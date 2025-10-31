@@ -3,11 +3,12 @@
 
 pub mod game;
 pub mod manga;
+pub mod manga_chapter;
 pub mod media_library;
 pub mod user;
 
 pub use game::GameRepository;
 pub use manga::MangaRepository;
+pub use manga_chapter::MangaChapterRepository;
 pub use media_library::MediaLibraryRepository;
 pub use user::UserRepository;
-

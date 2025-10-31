@@ -1,4 +1,4 @@
-use domain::repository::{MediaLibraryRepository, MangaRepository, GameRepository};
+use domain::repository::{MediaLibraryRepository, MangaRepository, MangaChapterRepository, GameRepository};
 use infrastructure::file_scanner;
 use std::sync::Arc;
 use crate::dto::CreateMediaLibraryRequest;
@@ -7,6 +7,7 @@ use crate::dto::CreateMediaLibraryRequest;
 pub struct MediaLibraryService {
     media_library_repo: Arc<dyn MediaLibraryRepository>,
     manga_repo: Arc<dyn MangaRepository>,
+    manga_chapter_repo: Arc<dyn MangaChapterRepository>,
     game_repo: Arc<dyn GameRepository>,
 }
 
@@ -15,11 +16,13 @@ impl MediaLibraryService {
     pub fn new(
         media_library_repo: Arc<dyn MediaLibraryRepository>,
         manga_repo: Arc<dyn MangaRepository>,
+        manga_chapter_repo: Arc<dyn MangaChapterRepository>,
         game_repo: Arc<dyn GameRepository>,
     ) -> Self {
         Self {
             media_library_repo,
             manga_repo,
+            manga_chapter_repo,
             game_repo,
         }
     }
@@ -103,22 +106,31 @@ impl MediaLibraryService {
         if aggregate.is_scannable() {
             match req.media_type.as_str() {
                 "漫画" => {
-                    // 扫描漫画文件夹
-                    let manga_folders = self.scan_manga_folders(&req.paths_json).await?;
+                    // 使用新的扫描逻辑（支持章节结构）
+                    let scan_results = self.scan_manga_folders_v2(&req.paths_json).await?;
 
-                    // 准备漫画数据（添加字节大小）
-                    let manga_folders_with_size: Vec<(String, i32, i32)> = manga_folders
-                        .into_iter()
-                        .map(|(folder_path, page_count)| {
-                            // ✅ 使用领域服务计算文件夹大小
-                            let byte_size = domain::service::MangaDomainService::calculate_folder_byte_size(&folder_path);
-                            (folder_path, page_count, byte_size)
-                        })
-                        .collect();
+                    let mut total_added = 0;
+                    for result in scan_results {
+                        match result {
+                            infrastructure::file_scanner::MangaScanResult::SingleFolder { path, page_count } => {
+                                // 单文件夹漫画
+                                let byte_size = domain::service::MangaDomainService::calculate_folder_byte_size(&path);
+                                aggregate.add_mangas_batch(vec![(path, page_count, byte_size)])?;
+                                total_added += 1;
+                            }
+                            infrastructure::file_scanner::MangaScanResult::ChapterStructure { root_path, chapters } => {
+                                // 章节结构漫画
+                                let chapter_data: Vec<(String, String, f32, i32)> = chapters
+                                    .into_iter()
+                                    .map(|ch| (ch.path, ch.title, ch.chapter_number, ch.page_count))
+                                    .collect();
 
-                    // ✅ 通过聚合根批量添加漫画（保证一致性边界）
-                    let added_count = aggregate.add_mangas_batch(manga_folders_with_size)?;
-                    tracing::info!("Added {} mangas to media library", added_count);
+                                aggregate.add_manga_with_chapters(root_path, chapter_data)?;
+                                total_added += 1;
+                            }
+                        }
+                    }
+                    tracing::info!("Added {} mangas to media library", total_added);
                 }
                 "游戏" => {
                     // 从配置中提取游戏提供者
@@ -157,7 +169,38 @@ impl MediaLibraryService {
             let created_mangas = self.manga_repo.create_batch(mangas).await?;
 
             // 批量更新漫画封面为 API URL
-            self.update_manga_covers_to_api_urls(created_mangas).await?;
+            self.update_manga_covers_to_api_urls(created_mangas.clone()).await?;
+
+            // 批量创建章节（如果有）
+            if !aggregate.manga_chapters.is_empty() {
+                // 更新章节的 manga_id（因为数据库生成了 ID）
+                let mut chapters = aggregate.manga_chapters;
+
+                // 创建 manga_id 映射（从路径到 ID）
+                let manga_id_map: std::collections::HashMap<String, i32> = created_mangas
+                    .iter()
+                    .map(|m| (m.path.clone(), m.id))
+                    .collect();
+
+                // 更新章节的 manga_id
+                for chapter in &mut chapters {
+                    // 从章节路径中提取漫画根路径
+                    let chapter_path = std::path::Path::new(&chapter.path);
+                    if let Some(parent) = chapter_path.parent() {
+                        let manga_root_path = parent.to_string_lossy().to_string();
+                        if let Some(&manga_id) = manga_id_map.get(&manga_root_path) {
+                            chapter.manga_id = manga_id;
+                        }
+                    }
+                }
+
+                // 批量插入章节
+                let created_chapters = self.manga_chapter_repo.create_batch(chapters).await?;
+                tracing::info!("Created {} chapters for {} mangas", created_chapters.len(), created_mangas.len());
+
+                // 批量更新章节封面为 API URL
+                self.update_chapter_covers_to_api_urls(created_chapters).await?;
+            }
         }
 
         // 批量创建游戏
@@ -210,17 +253,48 @@ impl MediaLibraryService {
         Ok(())
     }
 
-    /// 扫描漫画文件夹（异步版本，支持并行扫描多个路径）
-    /// 返回 Vec<(folder_path, image_count)> 元组列表
+    /// 更新 MangaChapter 的 cover 字段为相对路径标记（使用批量更新）
+    /// 格式为 `/manga/{manga_id}/chapter/{chapter_id}/cover`，用于标记这是一个 API 路径
+    /// 实际的封面文件会从章节文件夹中的第一张图片获取
+    ///
+    /// # 性能优化
+    /// - 使用事务批量更新，减少数据库往返次数
+    async fn update_chapter_covers_to_api_urls(&self, chapters: Vec<domain::entity::manga_chapter::Model>) -> anyhow::Result<()> {
+        if chapters.is_empty() {
+            return Ok(());
+        }
+
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+        // 批量更新所有 Chapter 的 cover 字段
+        let updated_chapters: Vec<domain::entity::manga_chapter::Model> = chapters
+            .into_iter()
+            .map(|mut chapter| {
+                // 生成相对路径标记（不包含 /api 前缀）
+                chapter.cover = Some(format!("/manga/{}/chapter/{}/cover", chapter.manga_id, chapter.id));
+                chapter.update_time = now.clone();
+                chapter
+            })
+            .collect();
+
+        // 使用批量更新（在事务中执行）
+        self.manga_chapter_repo.update_batch(updated_chapters).await?;
+
+        tracing::info!("Successfully updated chapter covers to relative paths");
+        Ok(())
+    }
+
+    /// 扫描漫画文件夹（支持章节结构）
+    /// 返回 Vec<MangaScanResult> 扫描结果列表
     ///
     /// # DDD 设计
-    /// - ✅ 基础设施层：scan_folders() - 只负责扫描文件夹，统计图片数量
-    /// - ✅ 领域层：MangaDomainService::filter_valid_manga_folders() - 过滤有效漫画（业务规则）
+    /// - ✅ 基础设施层：scan_folders_v2() - 扫描文件夹，识别单文件夹和章节结构
+    /// - ✅ 领域层：业务规则验证在聚合根中进行
     ///
     /// # 性能优化
     /// - 单路径：顺序扫描（无并行开销）
     /// - 多路径：并行扫描（性能提升 50-80%）
-    async fn scan_manga_folders(&self, paths_json: &str) -> anyhow::Result<Vec<(String, i32)>> {
+    async fn scan_manga_folders_v2(&self, paths_json: &str) -> anyhow::Result<Vec<infrastructure::file_scanner::MangaScanResult>> {
         // 解析 JSON 路径数组
         let paths: Vec<String> = serde_json::from_str(paths_json)
             .unwrap_or_else(|_| vec![paths_json.to_string()]);
@@ -228,49 +302,46 @@ impl MediaLibraryService {
         // 如果只有一个路径，直接顺序扫描（避免并行开销）
         if paths.len() == 1 {
             let path = &paths[0];
-            tracing::info!("Scanning manga folders in single path: {}", path);
+            tracing::info!("Scanning manga folders (v2) in single path: {}", path);
 
             let path_clone = path.clone();
-            // ✅ 基础设施层：扫描文件夹
-            let all_folders = tokio::task::spawn_blocking(move || {
-                file_scanner::scan_folders(&path_clone)
+            // ✅ 基础设施层：扫描文件夹（支持章节结构）
+            let results = tokio::task::spawn_blocking(move || {
+                file_scanner::scan_folders_v2(&path_clone)
             })
             .await
             .map_err(|e| anyhow::anyhow!("Task join error: {}", e))??;
 
-            // ✅ 领域层：过滤有效漫画（业务规则：2 张图片以上）
-            let valid_folders = domain::service::MangaDomainService::filter_valid_manga_folders(all_folders);
-
-            tracing::info!("Found {} valid manga folders in {}", valid_folders.len(), path);
-            return Ok(valid_folders);
+            tracing::info!("Found {} manga items in {}", results.len(), path);
+            return Ok(results);
         }
 
         // 多路径：并行扫描所有路径
-        tracing::info!("Scanning manga folders in {} paths (parallel mode)", paths.len());
+        tracing::info!("Scanning manga folders (v2) in {} paths (parallel mode)", paths.len());
 
         // 创建并行任务
         let mut tasks = Vec::new();
         for path in paths {
             let path_clone = path.clone();
             let task = tokio::task::spawn_blocking(move || {
-                tracing::debug!("Scanning path: {}", path_clone);
-                // ✅ 基础设施层：扫描文件夹
-                let result = file_scanner::scan_folders(&path_clone);
+                tracing::debug!("Scanning path (v2): {}", path_clone);
+                // ✅ 基础设施层：扫描文件夹（支持章节结构）
+                let result = file_scanner::scan_folders_v2(&path_clone);
                 (path_clone, result)
             });
             tasks.push(task);
         }
 
         // 等待所有任务完成并收集结果
-        let mut all_folders = Vec::new();
+        let mut all_results = Vec::new();
         for task in tasks {
             let (path, result) = task.await
                 .map_err(|e| anyhow::anyhow!("Task join error: {}", e))?;
 
             match result {
-                Ok(folders) => {
-                    tracing::info!("Found {} folders in {}", folders.len(), path);
-                    all_folders.extend(folders);
+                Ok(results) => {
+                    tracing::info!("Found {} manga items in {}", results.len(), path);
+                    all_results.extend(results);
                 }
                 Err(e) => {
                     tracing::warn!("Failed to scan path {}: {}", path, e);
@@ -279,12 +350,10 @@ impl MediaLibraryService {
             }
         }
 
-        // ✅ 领域层：过滤有效漫画（业务规则：2 张图片以上）
-        let valid_folders = domain::service::MangaDomainService::filter_valid_manga_folders(all_folders);
-
-        tracing::info!("Total valid manga folders found: {}", valid_folders.len());
-        Ok(valid_folders)
+        tracing::info!("Total manga items found: {}", all_results.len());
+        Ok(all_results)
     }
+
 
     /// 从配置 JSON 中提取游戏提供者列表
     ///
@@ -389,68 +458,65 @@ impl MediaLibraryService {
 
 #[cfg(test)]
 mod tests {
-    // 测试标题提取逻辑的辅助函数
-    fn test_extract_title(folder_path: &str) -> String {
-        let folder_name = std::path::Path::new(folder_path)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("Unknown");
-
-        // 只有当文件夹名称以 '[' 开头时，才尝试提取中括号后面的内容
-        if folder_name.starts_with('[') {
-            if let Some(end) = folder_name.find(']') {
-                // 提取中括号后面的内容，并去除两端空格
-                let title = folder_name[end + 1..].trim();
-                if !title.is_empty() {
-                    return title.to_string();
-                }
-            }
-        }
-
-        // 如果没有开头的中括号或中括号后面为空，使用整个文件夹名称
-        folder_name.to_string()
-    }
+    use domain::service::MangaDomainService;
 
     #[test]
     fn test_extract_title_with_author_bracket() {
         // 测试 [作者名] 标题 的格式
-        let result = test_extract_title("/path/to/[Simao] 先輩のお誘い");
+        let result = MangaDomainService::extract_title_from_path("/path/to/[Simao] 先輩のお誘い");
         assert_eq!(result, "先輩のお誘い");
     }
 
     #[test]
     fn test_extract_title_with_author_bracket_and_spaces() {
         // 测试 [作者名]  标题  的格式（有多个空格）
-        let result = test_extract_title("/path/to/[ははきぎ]   Fanbox 10-31");
+        let result = MangaDomainService::extract_title_from_path("/path/to/[ははきぎ]   Fanbox 10-31");
         assert_eq!(result, "Fanbox 10-31");
     }
 
     #[test]
     fn test_extract_title_without_bracket() {
-        // 测试没有中括号的格式
-        let result = test_extract_title("/path/to/Axiah - Suguha [159 p]");
-        assert_eq!(result, "Axiah - Suguha [159 p]");
+        // 测试没有中括号的格式（中括号在中间，不移除）
+        let result = MangaDomainService::extract_title_from_path("/path/to/Axiah - Suguha [159 p]");
+        assert_eq!(result, "Axiah - Suguha");
     }
 
     #[test]
     fn test_extract_title_simple_name() {
         // 测试简单的文件夹名称
-        let result = test_extract_title("/path/to/My Manga");
+        let result = MangaDomainService::extract_title_from_path("/path/to/My Manga");
         assert_eq!(result, "My Manga");
     }
 
     #[test]
     fn test_extract_title_empty_bracket() {
         // 测试空中括号的情况
-        let result = test_extract_title("/path/to/[] My Manga");
+        let result = MangaDomainService::extract_title_from_path("/path/to/[] My Manga");
         assert_eq!(result, "My Manga");
     }
 
     #[test]
     fn test_extract_title_japanese_author() {
         // 测试日文作者名的情况
-        let result = test_extract_title("/path/to/[紅玉] 便器姫子-無文字、落書差分");
+        let result = MangaDomainService::extract_title_from_path("/path/to/[紅玉] 便器姫子-無文字、落書差分");
         assert_eq!(result, "便器姫子-無文字、落書差分");
+    }
+
+    #[test]
+    fn test_extract_title_multiple_brackets() {
+        // 测试多个中括号的情况
+        let result = MangaDomainService::extract_title_from_path("/path/to/[超勇汉化组] [むりぽよ] 标题 [中国翻译]");
+        assert_eq!(result, "标题");
+    }
+
+    #[test]
+    fn test_extract_title_long_title() {
+        // 测试超长标题的情况
+        let long_title = "a".repeat(250);
+        let path = format!("/path/to/{}", long_title);
+        let result = MangaDomainService::extract_title_from_path(&path);
+        assert_eq!(result.len(), 200); // 197 + "..." = 200
+        assert!(result.ends_with("..."));
     }
 }
 

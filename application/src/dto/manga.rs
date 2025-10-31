@@ -28,6 +28,7 @@ pub struct MangaInfo {
     pub author_id: Option<i32>,
     pub media_library_id: i32,
     pub cover: Option<String>,
+    pub has_chapters: bool,
     pub create_time: String,
     pub update_time: String,
 }
@@ -78,6 +79,7 @@ impl From<domain::entity::manga::Model> for MangaInfo {
             author_id: manga.author_id,
             media_library_id: manga.media_library_id,
             cover: manga.cover,
+            has_chapters: manga.has_chapters,
             create_time: manga.create_time,
             update_time: manga.update_time,
         }

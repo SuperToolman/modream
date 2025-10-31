@@ -46,7 +46,7 @@ pub struct ThumbnailQuery {
 #[utoipa::path(
     get,
     path = "/api/manga/{mangaId}/images",
-    tag = "image",
+    tag = "manga",
     responses(
         (status = 200, description = "获取成功", body = ApiResponse<OptimizedImageListResponse>),
         (status = 404, description = "漫画不存在"),
@@ -89,7 +89,7 @@ pub async fn get_manga_images(
 #[utoipa::path(
     get,
     path = "/api/manga/{mangaId}/images/{imageIndex}",
-    tag = "image",
+    tag = "manga",
     responses(
         (status = 200, description = "获取成功（完整内容）"),
         (status = 206, description = "获取成功（部分内容）"),
@@ -176,7 +176,7 @@ pub async fn get_manga_image(
 #[utoipa::path(
     get,
     path = "/api/manga/{mangaId}/cover",
-    tag = "image",
+    tag = "manga",
     params(
         ("width" = Option<u32>, Query, description = "缩略图宽度，默认 200"),
         ("height" = Option<u32>, Query, description = "缩略图高度，默认 300"),

@@ -1,8 +1,9 @@
 use utoipa::OpenApi;
-use application::dto::{LoginRequest, LoginResponse, RegisterRequest, UserInfo, MediaLibraryInfo, MangaInfo, GameInfo, PagedResponse, CreateMediaLibraryRequest, PaginationQuery};
+use application::dto::{LoginRequest, LoginResponse, RegisterRequest, UserInfo, MediaLibraryInfo, MangaInfo, MangaChapterInfo, GameInfo, PagedResponse, CreateMediaLibraryRequest, PaginationQuery};
 use domain::entity::user::Model as UserModel;
-use crate::api::{auth, user, media_library, manga, image, game};
+use crate::api::{auth, user, media_library, manga, image, manga_chapter, game};
 use crate::api::image::ImageInfo;
+use crate::api::manga_chapter::OptimizedChapterImageListResponse;
 use crate::api::game::{ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPathRequest};
 
 /// API 文档
@@ -20,6 +21,10 @@ use crate::api::game::{ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPa
         image::get_manga_images,
         image::get_manga_image,
         image::get_manga_cover,
+        manga_chapter::get_manga_chapters,
+        manga_chapter::get_chapter_images,
+        manga_chapter::get_chapter_image,
+        manga_chapter::get_chapter_cover,
         game::get_game,
         game::get_games_paged,
         game::scan_games,
@@ -38,6 +43,8 @@ use crate::api::game::{ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPa
             CreateMediaLibraryRequest,
             MediaLibraryInfo,
             MangaInfo,
+            MangaChapterInfo,
+            OptimizedChapterImageListResponse,
             GameInfo,
             PagedResponse<MangaInfo>,
             PagedResponse<GameInfo>,
@@ -68,8 +75,8 @@ use crate::api::game::{ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPa
         (name = "auth", description = "认证相关接口"),
         (name = "user", description = "用户相关接口"),
         (name = "media_library", description = "媒体库相关接口"),
-        (name = "manga", description = "漫画相关接口"),
-        (name = "image", description = "图片相关接口"),
+        (name = "manga", description = "漫画相关接口（包括图片）"),
+        (name = "manga_chapter", description = "漫画章节相关接口（包括图片）"),
         (name = "game", description = "游戏相关接口"),
     )
 )]

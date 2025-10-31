@@ -29,6 +29,8 @@ pub struct Model {
     pub author_id: Option<i32>,
     #[sea_orm(column_name = "MediaLibraryId")]
     pub media_library_id: i32,
+    #[sea_orm(column_name = "HasChapters")]
+    pub has_chapters: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -39,11 +41,20 @@ pub enum Relation {
         to = "super::media_library::Column::Id"
     )]
     MediaLibrary,
+
+    #[sea_orm(has_many = "super::manga_chapter::Entity")]
+    Chapters,
 }
 
 impl Related<super::media_library::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::MediaLibrary.def()
+    }
+}
+
+impl Related<super::manga_chapter::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Chapters.def()
     }
 }
 
@@ -63,6 +74,7 @@ impl Model {
     /// - `byte_size`: 字节大小
     /// - `manga_type_string`: 漫画类型
     /// - `media_library_id`: 所属媒体库 ID
+    /// - `has_chapters`: 是否有章节结构
     ///
     /// # 返回
     /// - `anyhow::Result<Self>` - 创建的漫画实体
@@ -79,6 +91,7 @@ impl Model {
         byte_size: i32,
         manga_type_string: String,
         media_library_id: i32,
+        has_chapters: bool,
     ) -> anyhow::Result<Self> {
         // 使用领域服务验证业务规则
         crate::service::MangaDomainService::validate_title(&title)?;
@@ -96,6 +109,7 @@ impl Model {
             byte_size,
             manga_type_string,
             media_library_id,
+            has_chapters,
             author_id: None,
             description: None,
             cover: None,

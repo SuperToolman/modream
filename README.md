@@ -28,6 +28,10 @@
 ### ✅ 已完成功能
 
 - 📚 **漫画管理** - 完整的漫画库管理和阅读功能
+  - ✅ 单文件夹漫画支持（直接包含图片）
+  - ✅ 章节结构漫画支持（多个章节子目录）
+  - ✅ 智能标题提取（移除作者、翻译组标记）
+  - ✅ 章节切换和导航
 - 🎮 **游戏管理** - 游戏库管理、元数据自动识别、游戏启动功能
 
 ## 📋 目录
@@ -63,6 +67,10 @@
 ### 媒体管理特性
 
 - 📚 **漫画管理** - 漫画库创建、编辑、删除
+  - 混合模式扫描（单文件夹 + 章节结构）
+  - 智能标题提取（自动移除中括号标记）
+  - 章节管理和导航
+  - 在线阅读器
 - 🎮 **游戏管理** - 游戏库管理、元数据自动识别、游戏启动
 - 🖼️ **图片处理** - 自动缩略图、多种格式支持
 - 📁 **媒体库** - 灵活的媒体库组织方式
@@ -280,6 +288,8 @@ GET    /api/manga/{id}          # 获取漫画详情
 GET    /api/manga/{id}/images   # 获取漫画图片列表
 GET    /api/manga/{id}/images/{idx}  # 获取指定图片
 GET    /api/manga/{id}/cover    # 获取漫画封面
+GET    /api/manga/{id}/chapters # 获取漫画章节列表
+GET    /api/manga/{id}/chapters/{chapter_id}/images  # 获取章节图片列表
 ```
 
 #### 游戏管理
@@ -315,8 +325,11 @@ PUT    /api/config/gamebox      # 更新游戏数据库配置
 
 ### 2. 漫画管理
 - ✅ 漫画库创建、编辑、删除
+- ✅ 混合模式扫描（单文件夹 + 章节结构）
+- ✅ 智能标题提取（自动移除作者、翻译组标记）
+- ✅ 章节管理（章节列表、章节切换）
 - ✅ 漫画详情查看
-- ✅ 在线阅读功能
+- ✅ 在线阅读功能（支持章节导航）
 - ✅ 图片缩略图生成
 - ✅ 流式传输和缓存
 - ✅ 标签和分类管理
@@ -387,6 +400,71 @@ docker run -p 8080:8080 -v /path/to/data:/app/data overweb
 ```
 
 ## 📝 更新日志
+
+### v0.3.0 (2025-10-31) - 漫画章节功能上线 📚
+
+本次更新实现了完整的漫画章节管理系统，支持混合模式扫描（单文件夹 + 章节结构）。
+
+#### 📚 漫画章节核心功能
+- ✅ **章节实体和仓储** - 完整的章节领域模型（`domain/src/entity/manga_chapter.rs`）
+- ✅ **混合模式扫描** - 支持两种漫画组织方式（`infrastructure/src/file_scanner/manga_scanner.rs`）
+  - 单文件夹漫画：图片直接放在漫画文件夹中
+  - 章节结构漫画：每个章节一个子目录（支持"第1话"、"Chapter 1"等多种命名模式）
+- ✅ **智能标题提取** - 改进的标题提取逻辑（`domain/src/service/manga_service.rs`）
+  - 自动移除所有中括号及其内容（作者、翻译组标记）
+  - 智能截断超长标题（超过 200 字符自动截断）
+  - 示例：`[超勇汉化组] [むりぽよ] 标题 [中国翻译]` → `标题`
+- ✅ **章节 API** - RESTful API 端点（`interfaces/src/api/manga_chapter.rs`）
+  - `GET /api/manga/{id}/chapters` - 获取漫画章节列表
+  - `GET /api/manga/{id}/chapters/{chapter_id}` - 获取章节详情
+  - `GET /api/manga/{id}/chapters/{chapter_id}/images` - 获取章节图片列表
+  - `GET /api/manga/{id}/chapters/{chapter_id}/images/{idx}` - 获取章节指定图片
+- ✅ **章节服务** - 章节业务逻辑和应用服务（`application/src/manga_chapter_service.rs`）
+
+#### 🎨 前端章节功能
+- ✅ **章节选择器组件** - 章节切换组件（`tauri-app/app/(main)/content/mangas/[id]/read/components/ChapterSelector.tsx`）
+  - 上一章/下一章按钮
+  - 章节下拉选择器
+  - URL 参数同步
+- ✅ **漫画阅读器增强** - 支持章节导航（`tauri-app/app/(main)/content/mangas/[id]/read/page.tsx`）
+  - 自动检测漫画是否有章节
+  - 章节切换时自动跳转到第一页
+  - URL 参数管理（`?chapter=1`）
+- ✅ **漫画详情页增强** - 显示章节列表（`tauri-app/app/(main)/content/mangas/[id]/page.tsx`）
+  - 章节结构漫画显示章节列表
+  - 单文件夹漫画显示总页数
+- ✅ **章节 API 客户端** - TypeScript API 封装（`tauri-app/lib/api/manga-chapters.ts`）
+
+#### 🗄️ 数据库迁移
+- ✅ **章节表** - 完整的章节数据表结构
+  - 基本信息（标题、章节号、页数）
+  - 关联信息（漫画 ID、媒体库 ID）
+  - 文件信息（路径、字节大小）
+  - 时间戳（创建时间、更新时间）
+
+#### 🛠️ 技术改进
+- ✅ **聚合根增强** - `MediaLibraryAggregate` 支持章节管理
+  - `add_manga_with_chapters()` - 添加带章节的漫画
+  - 自动计算总页数和总字节大小
+- ✅ **图片服务增强** - 支持章节图片缓存（`application/src/image_service.rs`）
+  - `get_chapter_images()` - 获取章节图片列表（带缓存）
+  - 独立的章节图片缓存（Moka）
+- ✅ **类型安全** - 完整的 TypeScript 类型定义
+  - `MangaChapter` 接口
+  - `OptimizedChapterImageListResponse` 接口
+
+#### 🐛 Bug 修复
+- ✅ 修复漫画类型验证错误（空字符串 → "漫画"）
+- ✅ 修复标题长度验证错误（改进标题提取逻辑）
+- ✅ 添加调试日志以追踪标题提取过程
+
+#### 📊 统计
+- **新增文件**: 7 个
+- **修改文件**: 20+ 个
+- **代码行数**: 1500+ 行
+- **功能模块**: 章节管理、混合模式扫描、智能标题提取
+
+---
 
 ### v0.2.0 (2025-10-30) - 游戏管理功能上线 🎮
 
@@ -505,5 +583,5 @@ MIT License
 
 ---
 
-**最后更新**: 2025-10-30
+**最后更新**: 2025-10-31
 

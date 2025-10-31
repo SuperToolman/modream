@@ -1,5 +1,6 @@
 use crate::entity::game;
 use crate::entity::manga;
+use crate::entity::manga_chapter;
 use crate::entity::media_library;
 use crate::service::MangaDomainService;
 
@@ -20,6 +21,8 @@ pub struct MediaLibraryAggregate {
     pub media_library: media_library::Model,
     /// 漫画实体列表（聚合内的实体）
     pub mangas: Vec<manga::Model>,
+    /// 漫画章节列表（聚合内的实体）
+    pub manga_chapters: Vec<manga_chapter::Model>,
     /// 游戏实体列表（聚合内的实体）
     pub games: Vec<game::Model>,
 }
@@ -58,6 +61,7 @@ impl MediaLibraryAggregate {
         Ok(Self {
             media_library,
             mangas: Vec::new(),
+            manga_chapters: Vec::new(),
             games: Vec::new(),
         })
     }
@@ -67,6 +71,7 @@ impl MediaLibraryAggregate {
     /// # 参数
     /// - `media_library`: 媒体库实体
     /// - `mangas`: 漫画实体列表
+    /// - `manga_chapters`: 漫画章节列表
     /// - `games`: 游戏实体列表
     ///
     /// # 返回
@@ -74,11 +79,13 @@ impl MediaLibraryAggregate {
     pub fn from_entities(
         media_library: media_library::Model,
         mangas: Vec<manga::Model>,
+        manga_chapters: Vec<manga_chapter::Model>,
         games: Vec<game::Model>,
     ) -> Self {
         Self {
             media_library,
             mangas,
+            manga_chapters,
             games,
         }
     }
@@ -117,8 +124,9 @@ impl MediaLibraryAggregate {
             folder_path,
             page_count,
             byte_size,
-            String::new(), // 空字符串
+            "漫画".to_string(), // 默认类型为"漫画"
             self.media_library.id,
+            false, // 单文件夹漫画，无章节结构
         )?;
 
         // 添加到聚合根
@@ -158,6 +166,7 @@ impl MediaLibraryAggregate {
 
             // 使用领域服务提取标题
             let title = MangaDomainService::extract_title_from_path(&folder_path);
+            tracing::debug!("Extracted title from path '{}': '{}' (length: {})", folder_path, title, title.len());
 
             // 创建漫画实体（使用工厂方法，自动验证业务规则）
             match manga::Model::new(
@@ -165,8 +174,9 @@ impl MediaLibraryAggregate {
                 folder_path.clone(),
                 page_count,
                 byte_size,
-                String::new(), // 空字符串
+                "漫画".to_string(), // 默认类型为"漫画"
                 self.media_library.id,
+                false, // 单文件夹漫画，无章节结构
             ) {
                 Ok(manga) => {
                     self.mangas.push(manga);
@@ -209,6 +219,76 @@ impl MediaLibraryAggregate {
         self.media_library.decrement_item_count(1)?;
 
         Ok(manga)
+    }
+
+    /// 添加带章节的漫画到聚合根
+    ///
+    /// # 参数
+    /// - `root_path`: 漫画根目录路径
+    /// - `chapters`: 章节信息列表 (path, title, chapter_number, page_count)
+    ///
+    /// # 返回
+    /// - `anyhow::Result<(manga::Model, Vec<manga_chapter::Model>)>` - 创建的漫画和章节实体
+    ///
+    /// # 业务规则
+    /// - 漫画必须至少有 1 个章节
+    /// - 章节号必须唯一
+    /// - 自动更新媒体库的项目数量（+1）
+    pub fn add_manga_with_chapters(
+        &mut self,
+        root_path: String,
+        chapters: Vec<(String, String, f32, i32)>, // (path, title, chapter_number, page_count)
+    ) -> anyhow::Result<(manga::Model, Vec<manga_chapter::Model>)> {
+        // 验证章节数量
+        if chapters.is_empty() {
+            return Err(anyhow::anyhow!("Manga must have at least 1 chapter"));
+        }
+
+        // 使用领域服务提取标题
+        let title = MangaDomainService::extract_title_from_path(&root_path);
+        tracing::debug!("Extracted title from root_path '{}': '{}' (length: {})", root_path, title, title.len());
+
+        // 计算总页数和总字节大小
+        let total_page_count: i32 = chapters.iter().map(|(_, _, _, page_count)| page_count).sum();
+        let total_byte_size: i32 = chapters.iter()
+            .map(|(path, _, _, _)| MangaDomainService::calculate_folder_byte_size(path))
+            .sum();
+
+        // 创建漫画实体（has_chapters = true）
+        let manga = manga::Model::new(
+            title,
+            root_path,
+            total_page_count,
+            total_byte_size,
+            "漫画".to_string(), // 默认类型为"漫画"
+            self.media_library.id,
+            true, // 章节结构漫画
+        )?;
+
+        // 创建章节实体（注意：manga_id 暂时为 0，需要在持久化后更新）
+        let chapter_models: Vec<manga_chapter::Model> = chapters
+            .into_iter()
+            .map(|(path, title, chapter_number, page_count)| {
+                let byte_size = MangaDomainService::calculate_folder_byte_size(&path);
+                manga_chapter::Model::new(
+                    0, // manga_id 暂时为 0，需要在持久化后更新
+                    chapter_number,
+                    title,
+                    path,
+                    page_count,
+                    byte_size,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // 添加到聚合根
+        self.mangas.push(manga.clone());
+        self.manga_chapters.extend(chapter_models.clone());
+
+        // 更新媒体库的项目数量
+        self.media_library.increment_item_count(1)?;
+
+        Ok((manga, chapter_models))
     }
 
     /// 更新媒体库标题

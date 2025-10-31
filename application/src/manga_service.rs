@@ -57,6 +57,7 @@ impl MangaService {
             author_id: req.author_id,
             media_library_id: req.media_library_id,
             cover: req.cover,
+            has_chapters: false, // 默认为单文件夹漫画
             create_time: now.clone(),
             update_time: now,
         };
@@ -82,6 +83,7 @@ impl MangaService {
                     author_id: req.author_id,
                     media_library_id: req.media_library_id,
                     cover: req.cover,
+                    has_chapters: false, // 默认为单文件夹漫画
                     create_time: now.clone(),
                     update_time: now,
                 }

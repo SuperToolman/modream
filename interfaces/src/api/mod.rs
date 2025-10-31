@@ -16,6 +16,7 @@ pub mod auth;
 pub mod user;
 pub mod media_library;
 pub mod manga;
+pub mod manga_chapter;
 pub mod game;
 pub mod image;
 pub mod config;
@@ -66,6 +67,7 @@ pub fn create_router() -> Router<AppState> {
                 .nest("/media_libraries", media_library::routes())
                 .nest("/manga", manga::routes())
                 .nest("/manga", image::routes())
+                .nest("/manga_chapter", manga_chapter::routes())
                 .nest("/config", config::routes())
                 .merge(game::routes()),
         )

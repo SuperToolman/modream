@@ -1,4 +1,4 @@
-use domain::repository::MangaRepository;
+use domain::repository::{MangaRepository, MangaChapterRepository};
 use moka::future::Cache;
 use std::sync::Arc;
 use std::time::Duration;
@@ -6,19 +6,30 @@ use std::time::Duration;
 /// 图片服务 - 处理漫画图片相关的业务逻辑
 pub struct ImageService {
     manga_repo: Arc<dyn MangaRepository>,
+    manga_chapter_repo: Arc<dyn MangaChapterRepository>,
     /// 图片列表缓存：Key = manga_id, Value = Vec<图片路径>
     /// TTL: 5 分钟，最大容量: 1000 个漫画
     image_list_cache: Cache<i32, Arc<Vec<String>>>,
     /// Manga 实体缓存：Key = manga_id, Value = Manga
     /// TTL: 5 分钟，最大容量: 1000 个漫画
     manga_cache: Cache<i32, Arc<domain::entity::manga::Model>>,
+    /// 章节图片列表缓存：Key = chapter_id, Value = Vec<图片路径>
+    /// TTL: 5 分钟，最大容量: 1000 个章节
+    chapter_image_list_cache: Cache<i32, Arc<Vec<String>>>,
+    /// 章节实体缓存：Key = chapter_id, Value = MangaChapter
+    /// TTL: 5 分钟，最大容量: 1000 个章节
+    chapter_cache: Cache<i32, Arc<domain::entity::manga_chapter::Model>>,
 }
 
 impl ImageService {
     /// 创建新的图片服务实例
-    pub fn new(manga_repo: Arc<dyn MangaRepository>) -> Self {
+    pub fn new(
+        manga_repo: Arc<dyn MangaRepository>,
+        manga_chapter_repo: Arc<dyn MangaChapterRepository>,
+    ) -> Self {
         Self {
             manga_repo,
+            manga_chapter_repo,
             // 图片列表缓存：5 分钟 TTL，最多缓存 1000 个漫画的图片列表
             image_list_cache: Cache::builder()
                 .max_capacity(1000)
@@ -26,6 +37,16 @@ impl ImageService {
                 .build(),
             // Manga 实体缓存：5 分钟 TTL，最多缓存 1000 个漫画实体
             manga_cache: Cache::builder()
+                .max_capacity(1000)
+                .time_to_live(Duration::from_secs(300)) // 5 分钟
+                .build(),
+            // 章节图片列表缓存：5 分钟 TTL，最多缓存 1000 个章节的图片列表
+            chapter_image_list_cache: Cache::builder()
+                .max_capacity(1000)
+                .time_to_live(Duration::from_secs(300)) // 5 分钟
+                .build(),
+            // 章节实体缓存：5 分钟 TTL，最多缓存 1000 个章节实体
+            chapter_cache: Cache::builder()
                 .max_capacity(1000)
                 .time_to_live(Duration::from_secs(300)) // 5 分钟
                 .build(),
@@ -260,6 +281,146 @@ impl ImageService {
         .map_err(|e| anyhow::anyhow!("Task join error: {}", e))?;
 
         Ok(images)
+    }
+
+    // ==================== 章节图片相关方法 ====================
+
+    /// 从缓存或数据库获取章节信息
+    async fn get_chapter_from_cache_or_db(&self, chapter_id: i32) -> anyhow::Result<Arc<domain::entity::manga_chapter::Model>> {
+        // 先尝试从缓存获取
+        if let Some(cached_chapter) = self.chapter_cache.get(&chapter_id).await {
+            tracing::debug!("Chapter cache hit for chapter_id: {}", chapter_id);
+            return Ok(cached_chapter);
+        }
+
+        tracing::debug!("Chapter cache miss for chapter_id: {}", chapter_id);
+
+        // 缓存未命中，从数据库获取
+        let chapter = self.manga_chapter_repo
+            .find_by_id(chapter_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Chapter not found"))?;
+
+        let chapter_arc = Arc::new(chapter);
+
+        // 存入缓存
+        self.chapter_cache.insert(chapter_id, chapter_arc.clone()).await;
+
+        Ok(chapter_arc)
+    }
+
+    /// 获取章节的所有图片列表（带缓存）
+    pub async fn get_chapter_images(&self, chapter_id: i32) -> anyhow::Result<Vec<String>> {
+        // 先尝试从缓存获取
+        if let Some(cached_images) = self.chapter_image_list_cache.get(&chapter_id).await {
+            tracing::debug!("Chapter image list cache hit for chapter_id: {}", chapter_id);
+            return Ok((*cached_images).clone());
+        }
+
+        tracing::debug!("Chapter image list cache miss for chapter_id: {}", chapter_id);
+
+        // 缓存未命中，从数据库获取章节信息
+        let chapter = self.get_chapter_from_cache_or_db(chapter_id).await?;
+
+        // 异步扫描文件夹获取图片列表
+        let images = self.scan_images_in_folder(&chapter.path).await?;
+
+        // 存入缓存
+        self.chapter_image_list_cache.insert(chapter_id, Arc::new(images.clone())).await;
+
+        Ok(images)
+    }
+
+    /// 获取章节的第 N 张图片的路径（用于流式传输）
+    pub async fn get_chapter_image_path(&self, chapter_id: i32, index: i32) -> anyhow::Result<String> {
+        let images = self.get_chapter_images(chapter_id).await?;
+
+        if index < 0 || index >= images.len() as i32 {
+            return Err(anyhow::anyhow!("Image index out of range"));
+        }
+
+        Ok(images[index as usize].clone())
+    }
+
+    /// 获取章节的第 N 张图片（完整数据）
+    /// 注意：这个方法会将整个文件加载到内存，大文件建议使用 get_chapter_image_path + 流式传输
+    pub async fn get_chapter_image(&self, chapter_id: i32, index: i32) -> anyhow::Result<Vec<u8>> {
+        let image_path = self.get_chapter_image_path(chapter_id, index).await?;
+
+        // ✅ 使用异步 IO，不阻塞运行时
+        tokio::fs::read(&image_path).await
+            .map_err(|e| anyhow::anyhow!("Failed to read image: {}", e))
+    }
+
+    /// 获取章节的封面路径（用于流式传输，带缓存）
+    ///
+    /// 如果 cover 字段是 API 路径格式（如 `/manga/1/chapter/1/cover`），则获取章节文件夹中的第一张图片
+    /// 否则直接使用 cover 字段作为文件系统路径
+    pub async fn get_chapter_cover_path(&self, chapter_id: i32) -> anyhow::Result<String> {
+        // 从缓存或数据库获取章节信息
+        let chapter = self.get_chapter_from_cache_or_db(chapter_id).await?;
+
+        // 如果 cover 是 API 路径格式（以 / 开头），则获取第一张图片
+        if let Some(cover) = &chapter.cover {
+            if cover.starts_with("/manga/") || cover.starts_with("/api/manga/") {
+                // 这是 API 路径格式，使用缓存的图片列表获取第一张图片
+                let images = self.get_chapter_images(chapter_id).await?;
+                return images.first()
+                    .cloned()
+                    .ok_or_else(|| anyhow::anyhow!("No images found in chapter folder"));
+            } else {
+                // 这是真实的文件系统路径
+                return Ok(cover.clone());
+            }
+        }
+
+        // 如果没有 cover 字段，使用缓存的图片列表获取第一张图片
+        let images = self.get_chapter_images(chapter_id).await?;
+        images.first()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No images found in chapter folder"))
+    }
+
+    /// 获取章节的封面（完整数据）
+    /// 注意：这个方法会将整个文件加载到内存，大文件建议使用 get_chapter_cover_path + 流式传输
+    pub async fn get_chapter_cover(&self, chapter_id: i32) -> anyhow::Result<Vec<u8>> {
+        let cover_path = self.get_chapter_cover_path(chapter_id).await?;
+
+        // ✅ 使用异步 IO，不阻塞运行时
+        tokio::fs::read(&cover_path).await
+            .map_err(|e| anyhow::anyhow!("Failed to read cover: {}", e))
+    }
+
+    /// 获取章节的封面缩略图（带缓存）
+    ///
+    /// # 参数
+    /// - `chapter_id`: 章节 ID
+    /// - `width`: 缩略图宽度（像素），默认 200
+    /// - `height`: 缩略图高度（像素），默认 300
+    /// - `quality`: 图片质量（0-100），默认 85
+    ///
+    /// # 返回
+    /// - `Vec<u8>` - JPEG 格式的缩略图数据
+    pub async fn get_chapter_cover_thumbnail(
+        &self,
+        chapter_id: i32,
+        width: Option<u32>,
+        height: Option<u32>,
+        quality: Option<u8>,
+    ) -> anyhow::Result<Vec<u8>> {
+        let width = width.unwrap_or(200);
+        let height = height.unwrap_or(300);
+        let quality = quality.unwrap_or(85);
+
+        // 获取封面路径
+        let cover_path = self.get_chapter_cover_path(chapter_id).await?;
+
+        // 读取原始图片
+        let image_data = tokio::fs::read(&cover_path).await
+            .map_err(|e| anyhow::anyhow!("Failed to read cover: {}", e))?;
+
+        // 压缩为缩略图
+        compress_image(&image_data, width, height, quality)
     }
 }
 

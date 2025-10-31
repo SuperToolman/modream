@@ -79,13 +79,12 @@ impl MangaDomainService {
     /// 从文件夹路径提取漫画标题
     ///
     /// 业务规则：
-    /// - 如果文件夹名称以中括号开头，则提取中括号后面的内容作为标题（去除两端空格）
+    /// - 移除所有中括号及其内容（作者、翻译组等标记）
     /// - 例如：[紅玉] 便器姫子-無文字、落書差分 -> 便器姫子-無文字、落書差分
     /// - 例如：[Simao] 先輩のお誘い -> 先輩のお誘い
-    /// - 例如：[ははきぎ] Fanbox 10-31 -> Fanbox 10-31
-    /// - 否则使用整个文件夹名称作为标题
-    /// - 注意：只有开头的中括号才会被识别为作者标记
-    /// - 例如：Axiah - Suguha [159 p] -> Axiah - Suguha [159 p]（不提取）
+    /// - 例如：[超勇汉化组] [むりぽよ] 标题 [中国翻译] -> 标题
+    /// - 如果提取后的标题为空，使用整个文件夹名称
+    /// - 如果标题超过 200 个字符，截断到 197 个字符并添加 "..."
     /// - 如果无法提取，返回 "Unknown"
     ///
     /// # 参数
@@ -99,19 +98,39 @@ impl MangaDomainService {
             .and_then(|name| name.to_str())
             .unwrap_or("Unknown");
 
-        // 只有当文件夹名称以 '[' 开头时，才尝试提取中括号后面的内容
-        if folder_name.starts_with('[') {
-            if let Some(end) = folder_name.find(']') {
-                // 提取中括号后面的内容，并去除两端空格
-                let title = folder_name[end + 1..].trim();
-                if !title.is_empty() {
-                    return title.to_string();
+        // 移除所有中括号及其内容
+        let mut title = String::new();
+        let mut in_bracket = false;
+
+        for ch in folder_name.chars() {
+            match ch {
+                '[' => in_bracket = true,
+                ']' => in_bracket = false,
+                _ => {
+                    if !in_bracket {
+                        title.push(ch);
+                    }
                 }
             }
         }
 
-        // 如果没有开头的中括号或中括号后面为空，使用整个文件夹名称
-        folder_name.to_string()
+        // 去除两端空格
+        let title = title.trim();
+
+        // 如果提取后的标题为空，使用整个文件夹名称
+        let final_title = if title.is_empty() {
+            folder_name
+        } else {
+            title
+        };
+
+        // 如果标题超过 200 个字符，截断到 197 个字符并添加 "..."
+        if final_title.len() > 200 {
+            let truncated = final_title.chars().take(197).collect::<String>();
+            format!("{}...", truncated)
+        } else {
+            final_title.to_string()
+        }
     }
 
     /// 计算图片列表的总字节大小

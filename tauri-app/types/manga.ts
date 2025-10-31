@@ -14,6 +14,7 @@ export interface Manga {
   author_id: number | null;
   media_library_id: number;
   cover: string;
+  has_chapters: boolean;
   create_time: string;
   update_time: string;
 }
@@ -51,6 +52,28 @@ export interface MangaImagesResponse {
 
 // 优化的图片列表响应（后端返回格式）
 export interface OptimizedImageListResponse {
+  count: number;
+  url_template: string;
+}
+
+// ==================== 章节相关类型 ====================
+
+// 章节信息
+export interface MangaChapter {
+  id: number;
+  manga_id: number;
+  chapter_number: number;
+  title: string;
+  path: string;
+  page_count: number;
+  byte_size: number;
+  cover: string | null;
+  create_time: string;
+  update_time: string;
+}
+
+// 优化的章节图片列表响应
+export interface OptimizedChapterImageListResponse {
   count: number;
   url_template: string;
 }

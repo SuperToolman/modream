@@ -7,8 +7,8 @@ import { Button } from "@heroui/button";
 import { Divider } from "@heroui/divider";
 import { Avatar } from "@heroui/avatar";
 import { useState, useEffect } from "react";
-import { mangasApi } from '@/lib/api/mangas';
-import type { Manga } from '@/types/manga';
+import { mangasApi, mangaChaptersApi } from '@/lib/api';
+import type { Manga, MangaChapter } from '@/types/manga';
 
 /**
  * 格式化文件大小
@@ -34,6 +34,7 @@ interface MangaDetailProps {
 export default function MangaDetail({ params }: MangaDetailProps) {
     const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null);
     const [manga, setManga] = useState<Manga | null>(null);
+    const [chapters, setChapters] = useState<MangaChapter[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +46,12 @@ export default function MangaDetail({ params }: MangaDetailProps) {
                 const mangaId = parseInt(resolvedParams.id, 10);
                 const data = await mangasApi.getById(mangaId);
                 setManga(data);
+
+                // 如果是章节漫画，获取章节列表
+                if (data.has_chapters) {
+                    const chaptersData = await mangaChaptersApi.getByMangaId(mangaId);
+                    setChapters(chaptersData);
+                }
             } catch (err) {
                 setError(err instanceof Error ? err.message : '获取漫画详情失败');
             } finally {
@@ -191,7 +198,14 @@ export default function MangaDetail({ params }: MangaDetailProps) {
 
                                 {/* 操作按钮 */}
                                 <div className="flex gap-2">
-                                    <Link href={`/content/mangas/${manga.id}/read?page=1`} className="flex-1">
+                                    <Link
+                                        href={
+                                            manga.has_chapters && chapters.length > 0
+                                                ? `/content/mangas/${manga.id}/read?chapter=${chapters[0].id}&page=1`
+                                                : `/content/mangas/${manga.id}/read?page=1`
+                                        }
+                                        className="flex-1"
+                                    >
                                         <Button
                                             color="primary"
                                             className="w-full"
@@ -227,6 +241,59 @@ export default function MangaDetail({ params }: MangaDetailProps) {
                             </p>
                         </CardBody>
                     </Card>
+
+                    {/* 章节列表 Card（仅章节漫画显示） */}
+                    {manga.has_chapters && chapters.length > 0 && (
+                        <Card>
+                            <CardBody className="p-6">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                    章节列表
+                                    <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                                        共 {chapters.length} 章
+                                    </span>
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+                                    {chapters.map((chapter) => (
+                                        <Link
+                                            key={chapter.id}
+                                            href={`/content/mangas/${manga.id}/read?chapter=${chapter.id}&page=1`}
+                                        >
+                                            <Card
+                                                isPressable
+                                                isHoverable
+                                                className="border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
+                                            >
+                                                <CardBody className="p-3">
+                                                    <div className="flex items-center gap-3">
+                                                        {/* 章节封面缩略图 */}
+                                                        {chapter.cover && (
+                                                            <div className="relative w-12 h-16 flex-shrink-0 overflow-hidden rounded">
+                                                                <Image
+                                                                    alt={chapter.title}
+                                                                    src={mangaChaptersApi.getCoverUrl(manga.id, chapter.id, 100, 133, 80)}
+                                                                    className="w-full h-full object-cover"
+                                                                    removeWrapper
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {/* 章节信息 */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                                {chapter.title}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                                {chapter.page_count} 页
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </CardBody>
+                                            </Card>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </Card>
+                    )}
 
                     {/* 文件信息和详细信息 Card */}
                     <Card>
