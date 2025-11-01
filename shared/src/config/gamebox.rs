@@ -7,6 +7,10 @@ pub struct GameboxConfig {
     /// IGDB 配置
     #[serde(default)]
     pub igdb: IgdbConfig,
+    #[serde(default)]
+    pub dlsite: DlsiteConfig,
+    #[serde(default)]
+    pub steamdb: SteamdbConfig,
 }
 
 /// IGDB API 配置
@@ -27,6 +31,21 @@ pub struct IgdbConfig {
     pub enabled: bool,
 }
 
+/// DLSite 配置
+#[derive(Debug, Clone, Deserialize)]
+pub struct DlsiteConfig {
+    /// 是否启用 DLSite 提供者
+    pub enabled: bool,
+}
+
+/// SteamDB 配置
+#[derive(Debug, Clone, Deserialize)]
+pub struct SteamdbConfig {
+    /// 是否启用 SteamDB 提供者
+    pub enabled: bool,
+}
+
+
 impl Default for IgdbConfig {
     fn default() -> Self {
         Self {
@@ -37,10 +56,29 @@ impl Default for IgdbConfig {
     }
 }
 
+impl Default for DlsiteConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+        }
+    }
+}
+
+impl Default for SteamdbConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+        }
+    }
+}
+
+
 impl Default for GameboxConfig {
     fn default() -> Self {
         Self {
             igdb: IgdbConfig::default(),
+            dlsite: DlsiteConfig::default(),
+            steamdb: SteamdbConfig::default(),
         }
     }
 }

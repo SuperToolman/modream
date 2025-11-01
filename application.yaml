@@ -48,4 +48,12 @@ gamebox:
     client_id: "8v3vdro2ps2sw47wp3lu7cjerrqktr"
     client_secret: "a5ofgegn9ky9suic8xg0wlccx5hww6"
     enabled: true
+  dlsite:
+    enabled: true
+  steamdb:
+    enabled: true
+movie:
+  tmdb:
+    api_key: "your_tmdb_api_key"
+    enabled: true
 

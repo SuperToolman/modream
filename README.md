@@ -32,15 +32,10 @@
 
 ### ✅ 已完成功能
 
-- 📚 **漫画管理** - 完整的漫画库管理和阅读功能
-  - ✅ 单文件夹漫画支持（直接包含图片）
-  - ✅ 章节结构漫画支持（多个章节子目录）
-  - ✅ 智能标题提取（移除作者、翻译组标记）
-  - ✅ 章节切换和导航
+- 📚 **漫画管理** - 完整的漫画库管理和阅读功能、只能标题提取、章节结构支持
 - 🎮 **游戏管理** - 游戏库管理、元数据自动识别、游戏启动功能
 
 ## 📋 目录
-
 - [项目定位](#项目定位)
 - [当前状态](#当前状态)
 - [项目特性](#项目特性)
@@ -50,11 +45,9 @@
 - [技术栈](#技术栈)
 - [项目结构](#项目结构)
 - [快速开始](#快速开始)
-- [API 文档](#api-文档)
+- [API 文档（待更新）](#api-文档)
 - [核心功能](#核心功能)
-- [开发指南](#开发指南)
-- [部署](#部署)
-- [更新日志](#更新日志)
+- [开发指南（待更新）](#开发指南)
 
 ## ✨ 项目特性
 
@@ -77,7 +70,8 @@
   - 智能标题提取（自动移除中括号标记）
   - 章节管理和导航
   - 在线阅读器
-- 🎮 **游戏管理** - 游戏库管理、元数据自动识别、游戏启动
+- 🎮 **游戏管理** 
+  - 自制库、元数据自动识别、游戏启动
 - 🖼️ **图片处理** - 自动缩略图、多种格式支持
 - 📁 **媒体库** - 灵活的媒体库组织方式
 - 🔍 **智能扫描** - 自动扫描和索引本地文件
@@ -212,29 +206,29 @@
 
 ```
 modream/
-├── shared/              # 共享模块（配置、日志）
-├── domain/              # 领域层（实体、聚合、仓储）
-│   ├── entity/         # 实体定义（manga, game, media_library）
-│   ├── aggregate/      # 聚合根（media_library_aggregate）
-│   ├── repository/     # 仓储接口
-│   └── service/        # 领域服务
-├── infrastructure/      # 基础设施层（数据库、JWT、密码）
-│   ├── repository/     # 仓储实现
-│   └── file_scanner/   # 文件扫描器（漫画、游戏）
-├── application/         # 应用层（业务逻辑、DTO、服务）
-│   ├── dto/            # 数据传输对象
-│   └── *_service.rs    # 应用服务
-├── interfaces/          # 接口层（API 路由、错误处理）
-│   └── api/            # API 端点
-├── tauri-app/           # 前端应用（Next.js + Tauri）
-│   ├── app/            # Next.js 页面
-│   ├── components/     # React 组件
-│   ├── lib/            # 工具库和 API 客户端
-│   └── src-tauri/      # Tauri 桌面应用
-├── migrations/          # 数据库迁移文件
-├── docs/                # 项目文档
-├── application.yaml     # 应用配置
-├── Cargo.toml          # Rust Workspace 配置
+├── shared/               # 共享模块（配置、日志）
+├── domain/               # 领域层（实体、聚合、仓储）
+│   ├── entity/           # 实体定义（manga, game, media_library）
+│   ├── aggregate/        # 聚合根（media_library_aggregate）
+│   ├── repository/       # 仓储接口
+│   └── service/          # 领域服务
+├── infrastructure/       # 基础设施层（数据库、JWT、密码）
+│   ├── repository/       # 仓储实现
+│   └── file_scanner/     # 文件扫描器（漫画、游戏）
+├── application/          # 应用层（业务逻辑、DTO、服务）
+│   ├── dto/              # 数据传输对象
+│   └── *_service.rs      # 应用服务
+├── interfaces/           # 接口层（API 路由、错误处理）
+│   └── api/              # API 端点
+├── tauri-app/            # 前端应用（Next.js + Tauri）
+│   ├── app/              # Next.js 页面
+│   ├── components/       # React 组件
+│   ├── lib/              # 工具库和 API 客户端
+│   └── src-tauri/        # Tauri 桌面应用
+├── migrations/           # 数据库迁移文件
+├── docs/                 # 项目文档
+├── application.yaml      # 应用配置
+├── Cargo.toml            # Rust Workspace 配置
 └── .gitignore
 ```
 
@@ -255,71 +249,23 @@ cargo run --bin interfaces
 cd tauri-app
 pnpm install
 pnpm run dev
-```
 
+# 或启动Tauri桌面应用
+cd tauri-app
+pnpm install
+pnpm tauri dev
+```
 访问：
 - API: http://localhost:8080
 - Swagger: http://localhost:8080/swagger-ui
 - 前端: http://localhost:3000
 
-### Tauri 桌面应用
-
-```bash
-cd tauri-app
-pnpm install
-pnpm tauri dev
-```
-
 ## 📚 API 文档
+> 你可以根据，Modream所提供的API来高度定制自己的服务
 
 Swagger UI: http://localhost:8080/swagger-ui
 
-### 主要端点
 
-#### 认证
-```
-POST   /api/auth/login          # 用户登录
-POST   /api/auth/register       # 用户注册
-```
-
-#### 用户管理
-```
-GET    /api/users               # 获取用户列表
-```
-
-#### 漫画管理
-```
-GET    /api/manga               # 获取漫画列表
-GET    /api/manga/{id}          # 获取漫画详情
-GET    /api/manga/{id}/images   # 获取漫画图片列表
-GET    /api/manga/{id}/images/{idx}  # 获取指定图片
-GET    /api/manga/{id}/cover    # 获取漫画封面
-GET    /api/manga/{id}/chapters # 获取漫画章节列表
-GET    /api/manga/{id}/chapters/{chapter_id}/images  # 获取章节图片列表
-```
-
-#### 游戏管理
-```
-GET    /api/games               # 获取游戏列表
-GET    /api/games/{id}          # 获取游戏详情
-POST   /api/games/{id}/launch   # 启动游戏
-PUT    /api/games/{id}/default-start-path  # 设置默认启动路径
-```
-
-#### 媒体库管理
-```
-GET    /api/media_libraries     # 获取媒体库列表
-POST   /api/media_libraries/local    # 创建本地媒体库
-POST   /api/media_libraries/webdav   # 创建 WebDAV 媒体库
-GET    /api/media_libraries/{id}/manga  # 获取媒体库中的漫画
-GET    /api/media_libraries/{id}/games  # 获取媒体库中的游戏
-```
-
-#### 配置管理
-```
-GET    /api/config/gamebox      # 获取游戏数据库配置
-PUT    /api/config/gamebox      # 更新游戏数据库配置
-```
 
 ## 🎯 核心功能
 
@@ -363,34 +309,10 @@ PUT    /api/config/gamebox      # 更新游戏数据库配置
 - ✅ YAML 配置文件支持
 
 ## 👨‍💻 开发指南
-
-### 添加新 API 端点
-1. 定义 DTO (`application/src/dto/`)
-2. 实现服务 (`application/src/*_service.rs`)
-3. 创建路由 (`interfaces/src/api/`)
-4. 添加 Swagger 文档
-
-### 配置游戏数据库提供者
-
-编辑 `application.yaml` 添加 IGDB API 凭证：
-
-```yaml
-gamebox:
-  igdb:
-    client_id: "your_client_id"
-    client_secret: "your_client_secret"
-    enabled: true
-```
-
-获取 IGDB API 凭证：
-1. 访问 [IGDB API 文档](https://api-docs.igdb.com/#account-creation)
-2. 注册 Twitch 开发者账号
-3. 创建应用获取 Client ID 和 Client Secret
-
-### 配置
-编辑 `application.yaml` 修改配置
+> 待更新
 
 ## 🔐 安全性
+> 待完善
 
 ⚠️ **生产环境**:
 - 修改 JWT_SECRET
@@ -398,49 +320,8 @@ gamebox:
 - 启用 HTTPS
 - 使用环境变量
 
-## 📦 部署
 
-```bash
-docker build -t modream .
-docker run -p 8080:8080 -v /path/to/data:/app/data modream
-```
 
 ## 📝 更新日志
 
 详细的更新日志请查看 [CHANGELOG.md](CHANGELOG.md)。
-
-### 最新版本 v0.3.3 (2025-10-31)
-
-#### 🚀 性能优化
-- ✅ **减少存储空间 73-80%** - 优化图片路径存储策略（只存储文件名而非完整路径）
-- ✅ **数据库持久化** - 将图片路径列表存储到数据库，避免重复扫描文件夹
-- ✅ **性能提升 100-250 倍** - 图片列表获取速度（1-5ms vs 200-500ms）
-
-### v0.3.0 (2025-10-31) - 漫画章节功能上线 📚
-- ✅ 完整的漫画章节管理系统
-- ✅ 混合模式扫描（单文件夹 + 章节结构）
-- ✅ 智能标题提取（自动移除作者、翻译组标记）
-- ✅ 章节切换和导航功能
-
-### v0.2.0 (2025-10-30) - 游戏管理功能上线 🎮
-- ✅ 完整的游戏管理系统
-- ✅ 多数据库元数据刮削（IGDB、DLsite、SteamDB）
-- ✅ 游戏启动功能（跨平台支持）
-- ✅ Steam 风格的游戏详情页
-
-### v0.1.0 (2025-10-27) - 初始版本 🎉
-- ✅ 基础架构搭建（DDD 分层架构）
-- ✅ 用户认证系统（JWT + Bcrypt）
-- ✅ 漫画管理功能
-- ✅ 媒体库管理
-
----
-
-## 📝 许可证
-
-MIT License
-
----
-
-**最后更新**: 2025-10-31
-
