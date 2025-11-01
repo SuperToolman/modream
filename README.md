@@ -206,7 +206,7 @@ pnpm tauri dev
 访问：
 - API: http://localhost:8080
 - Swagger: http://localhost:8080/swagger-ui
-- 前端: http://localhost:3000
+- Web: http://localhost:3000
 
 ## 📚 API 文档
 > 你可以根据，Modream所提供的API来高度定制自己的服务
