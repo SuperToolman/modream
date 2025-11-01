@@ -1,5 +1,7 @@
 # 🎬 Modream（末梦）- 私有媒体库管理系统
 
+**Languages**: [English](README.en.md) | 简体中文
+
 [![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
@@ -40,12 +42,9 @@
 - [当前状态](#当前状态)
 - [项目特性](#项目特性)
 - [与其他方案对比](#与其他方案对比)
-- [性能亮点](#性能亮点)
 - [技术栈](#技术栈)
 - [快速开始](#快速开始)
-- [API 文档](#api-文档)
-- [核心功能](#核心功能)
-- [开发指南](#开发指南)
+- [相关文档](#相关文档)
 
 ## ✨ 项目特性
 
@@ -101,6 +100,38 @@
 - **输入验证** - Serde + 自定义验证器确保 API 输入合法性
 - **速率限制** - 基于令牌桶算法，防止 API 滥用
 
+### ⚡ 性能亮点
+
+#### 后端性能
+- **内存占用**: ~50-100MB（远低于 Java 应用）
+- **启动时间**: <1s
+- **并发连接**: 10,000+
+- **请求延迟**: <50ms
+- **吞吐量**: 5,000+ req/s
+- **CPU 占用**: 低（异步 I/O）
+
+#### 前端性能
+- **首屏加载**: <2s
+- **图片加载**: 渐进式
+- **缓存策略**: 30天
+- **包体积**: ~200KB
+- **Lighthouse**: 90+
+
+#### 数据库性能
+- **查询**: <10ms
+- **分页**: <50ms
+- **索引**: 优化
+- **并发**: 支持（SQLite WAL）
+
+#### 优化技术
+- 异步 I/O（Tokio）
+- 连接池
+- 多层缓存
+- 流式传输
+- CDN 友好
+- Gzip 压缩
+- 数据库索引优化
+
 ## 🔄 与其他方案对比
 
 | 特性 | Modream | Plex | Emby | Jellyfin | Elfilm |
@@ -121,38 +152,6 @@
 - 现代化：最新技术栈
 - 完全开源：代码完全开放
 - 专注漫画：针对漫画内容优化
-
-## ⚡ 性能亮点
-
-### 后端性能
-- **内存占用**: ~50-100MB（远低于 Java 应用）
-- **启动时间**: <1s
-- **并发连接**: 10,000+
-- **请求延迟**: <50ms
-- **吞吐量**: 5,000+ req/s
-- **CPU 占用**: 低（异步 I/O）
-
-### 前端性能
-- **首屏加载**: <2s
-- **图片加载**: 渐进式
-- **缓存策略**: 30天
-- **包体积**: ~200KB
-- **Lighthouse**: 90+
-
-### 数据库性能
-- **查询**: <10ms
-- **分页**: <50ms
-- **索引**: 优化
-- **并发**: 支持（SQLite WAL）
-
-### 优化技术
-- 异步 I/O（Tokio）
-- 连接池
-- 多层缓存
-- 流式传输
-- CDN 友好
-- Gzip 压缩
-- 数据库索引优化
 
 ## 🛠️ 技术栈
 
@@ -208,68 +207,29 @@ pnpm tauri dev
 - Swagger: http://localhost:8080/swagger-ui
 - Web: http://localhost:3000
 
-## 📚 API 文档
-> 你可以根据，Modream所提供的API来高度定制自己的服务
+### API 使用
 
-Swagger UI: http://localhost:8080/swagger-ui
+Modream 提供完整的 RESTful API，你可以根据这些 API 来高度定制自己的服务。
 
+- **Swagger UI**: http://localhost:8080/swagger-ui - 在线 API 文档和测试工具
+- **详细文档**: 查看 [API.md](API.md) 了解完整的 API 使用指南
 
+## � 相关文档
 
-## 🎯 核心功能
+### 中文文档
+- **[API 文档](docs/zh-CN/API.md)** - 完整的 API 使用指南和接口说明
+- **[开发指南](docs/zh-CN/DEVELOPMENT.md)** - 开发环境搭建、代码规范、贡献指南
+- **[更新日志](CHANGELOG.md)** - 版本历史和功能更新记录
+- **[安全指南](docs/zh-CN/SECURITY.md)** - 安全配置和最佳实践
 
-### 1. 用户认证与管理
-- ✅ 用户注册、登录
-- ✅ JWT Token 认证
-- ✅ Bcrypt 密码加密
-- ✅ 用户等级和经验系统
+### English Documentation
+- **[API Documentation](docs/en/API.md)** - Complete API usage guide and interface documentation
+- **[Development Guide](docs/en/DEVELOPMENT.md)** - Development setup, code standards, and contribution guide
+- **[Changelog](CHANGELOG.en.md)** - Version history and feature updates
+- **[Security Guide](docs/en/SECURITY.md)** - Security configuration and best practices
 
-### 2. 漫画管理
-- ✅ 漫画库创建、编辑、删除
-- ✅ 混合模式扫描（单文件夹 + 章节结构）
-- ✅ 智能标题提取（自动移除作者、翻译组标记）
-- ✅ 章节管理（章节列表、章节切换）
-- ✅ 漫画详情查看
-- ✅ 在线阅读功能（支持章节导航）
-- ✅ 图片缩略图生成
-- ✅ 流式传输和缓存
-- ✅ 标签和分类管理
-
-### 3. 游戏管理 🆕
-- ✅ 游戏库自动扫描
-- ✅ 多数据库元数据刮削（IGDB、DLsite、SteamDB）
-- ✅ 游戏详情展示（封面、截图、描述、标签等）
-- ✅ 游戏启动功能（支持 Windows、macOS、Linux）
-- ✅ 默认启动路径配置
-- ✅ 游戏卡片组件（悬停轮播、默认封面）
-- ✅ Steam 风格的游戏详情页
-
-### 4. 媒体库管理
-- ✅ 本地媒体库支持
-- ✅ WebDAV 远程媒体库支持
-- ✅ 灵活的媒体库组织方式
-- ✅ 自动扫描和索引
-- ✅ 媒体库配置管理
-
-### 5. 配置管理 🆕
-- ✅ 游戏数据库提供者配置（IGDB API 凭证）
-- ✅ 配置 API 端点
-- ✅ 前端配置页面
-- ✅ YAML 配置文件支持
-
-## 👨‍💻 开发指南
-> 待更新
-
-## 🔐 安全性
-> 待完善
-
-⚠️ **生产环境**:
-- 修改 JWT_SECRET
-- 配置 CORS 白名单
-- 启用 HTTPS
-- 使用环境变量
-
-
-
-## 📝 更新日志
-
-详细的更新日志请查看 [CHANGELOG.md](CHANGELOG.md)。
+⚠️ **生产环境安全提示**:
+- 修改 JWT_SECRET 为强随机字符串
+- 配置 CORS 白名单，限制允许的来源
+- 启用 HTTPS 加密传输
+- 使用环境变量管理敏感配置
