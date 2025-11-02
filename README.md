@@ -190,8 +190,6 @@ modream/
 ├── Cargo.toml                    # Workspace 配置
 ├── application.yaml              # 应用配置
 ├── start-dev.ps1                 # 开发启动脚本 (Windows)
-├── start-dev.sh                  # 开发启动脚本 (Linux/Mac)
-├── stop-dev.sh                   # 停止脚本 (Linux/Mac)
 ├── docs/                         # 项目文档
 │   ├── ARCHITECTURE.md           # 架构设计说明
 │   └── DEPLOYMENT_GUIDE.md       # 部署指南
@@ -257,8 +255,8 @@ modream/
 
 | 模式 | 命令 | 前端 | 热重载 | 适用场景 |
 |------|------|------|--------|----------|
-| **开发模式（一键）** | `./start-dev.ps1` 或 `./start-dev.sh` | 开发服务器 | ✅ | 日常开发（推荐）|
-| **开发模式（手动）** | 2 个终端分别启动 | 开发服务器 | ✅ | 后端调试 |
+| **开发模式（一键）** | `.\start-dev.ps1` | 开发服务器 + Tauri | ✅ | 日常开发（推荐）|
+| **开发模式（手动）** | 2-3 个终端分别启动 | 开发服务器 | ✅ | 后端调试 |
 | **服务器模式** | `cargo run --bin desktop -- --server` | 无前端 | - | Linux 服务器、Docker |
 
 > **⚠️ 注意**：本项目使用了动态路由（如 `/mangas/[id]`），因此前端必须运行 Next.js 服务器，不支持纯静态导出。
@@ -271,7 +269,6 @@ modream/
 
 #### 选项 A：一键启动（最简单）✨
 
-**Windows**：
 ```powershell
 # 1. 克隆项目
 git clone <repo>
@@ -282,36 +279,25 @@ cd web
 pnpm install
 cd ..
 
-# 3. 一键启动
+# 3. 一键启动（Windows）
 .\start-dev.ps1
 ```
 
-**Linux/Mac**：
-```bash
-# 1. 克隆项目
-git clone <repo>
-cd modream
-
-# 2. 安装前端依赖
-cd web
-pnpm install
-cd ..
-
-# 3. 一键启动
-chmod +x start-dev.sh
-./start-dev.sh
-
-# 停止服务
-./stop-dev.sh
-```
-
 **这会自动**：
-1. 启动 WebAPI（8080 端口）
-2. 启动 Next.js 开发服务器（3000 端口，支持热重载）
-3. 打开 2 个终端窗口
+1. ✅ 在后台启动 WebAPI（8080 端口）
+2. ✅ 在后台启动 Next.js 开发服务器（3000 端口，支持热重载）
+3. ✅ 启动 Tauri 桌面窗口（加载 http://localhost:3000）
+4. ✅ 日志输出到 `logs/` 目录（`backend.log` 和 `frontend.log`）
+
+**特点**：
+- 🎯 **单窗口运行** - 所有服务在一个 PowerShell 窗口中运行
+- 📝 **日志文件** - 后端和前端日志保存在 `logs/` 目录
+- 🔄 **自动清理** - 按 `Ctrl+C` 或关闭 Tauri 窗口时自动停止所有服务
+- ⚡ **热重载** - 前端修改会自动刷新 Tauri 窗口
 
 **访问**：
-- 前端: http://localhost:3000
+- Tauri 窗口: 自动打开
+- 浏览器: http://localhost:3000
 - API: http://localhost:8080
 - Swagger: http://localhost:8080/swagger-ui
 

@@ -7,6 +7,32 @@
 
 ---
 
+## [0.4.2] - 2025-11-02
+
+### � 开发体验优化
+
+#### 改进
+
+- ✅ **启动脚本优化** - 单窗口运行所有服务
+  - 优化 `start-dev.ps1` - 使用 `Start-Job` 在后台运行服务
+  - 不再打开多个 PowerShell 窗口
+  - 日志输出到 `logs/` 目录（`backend.log` 和 `frontend.log`）
+  - 按 `Ctrl+C` 自动停止所有服务
+  - 自动启动 Tauri 桌面窗口（加载开发服务器）
+  - 支持前端热重载
+
+- ✅ **脚本简化** - 移除冗余脚本
+  - 移除 `start-dev.sh` 和 `stop-dev.sh`（Linux/Mac）
+  - 只保留 `start-dev.ps1`（Windows）
+  - 简化项目结构
+
+- ✅ **README 更新** - 反映最新的启动方式
+  - 更新快速开始指南
+  - 说明单窗口运行的优势
+  - 更新启动方式对比表格
+
+---
+
 ## [0.4.1] - 2025-11-02
 
 ### 📚 文档和开发体验改进
@@ -15,8 +41,6 @@
 
 - ✅ **开发启动脚本** - 一键启动开发环境
   - `start-dev.ps1` - Windows PowerShell 脚本
-  - `start-dev.sh` - Linux/Mac Bash 脚本
-  - `stop-dev.sh` - Linux/Mac 停止脚本
   - 自动检查环境依赖（Rust、Node.js、pnpm）
   - 自动启动后端 API 和前端开发服务器
   - 支持热重载和独立调试
