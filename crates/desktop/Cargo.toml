@@ -1,6 +1,6 @@
 [package]
 name = "desktop"
-version = "0.3.4"
+version = "0.4.0"
 description = "Modream Desktop Application"
 authors = ["you"]
 license = ""
