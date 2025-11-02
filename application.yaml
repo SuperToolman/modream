@@ -1,6 +1,13 @@
 server:
   port: 8080
   api_url: http://localhost:8080
+  # 启动模式配置
+  # desktop: 启动桌面应用 + WebAPI（默认）
+  # server: 只启动 WebAPI（适用于 Linux 服务器、Docker）
+  # gui: 只启动桌面应用（假设 API 已在其他地方运行）
+  mode: desktop
+  # 是否在桌面模式下自动启动 WebAPI
+  auto_start_api: true
   image:
     supported_formats: # 支持的图片格式
       - jpg

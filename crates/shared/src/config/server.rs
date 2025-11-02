@@ -205,11 +205,37 @@ const DEFAULT_CACHE_CONFIG: CacheConfig = CacheConfig {
     static_max_age: None,
 };
 
+/// 启动模式
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ServerMode {
+    /// 桌面模式：启动桌面应用 + WebAPI（默认）
+    Desktop,
+    /// 服务器模式：只启动 WebAPI（适用于 Linux 服务器、Docker）
+    Server,
+    /// GUI 模式：只启动桌面应用（假设 API 已在其他地方运行）
+    Gui,
+}
+
+impl Default for ServerMode {
+    fn default() -> Self {
+        ServerMode::Desktop
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ServerConfig {
     port: Option<u16>,
     api_url: Option<String>,
     image: Option<ImageConfig>,
+    #[serde(default)]
+    mode: ServerMode,
+    #[serde(default = "default_auto_start_api")]
+    auto_start_api: bool,
+}
+
+fn default_auto_start_api() -> bool {
+    true
 }
 
 impl ServerConfig {
@@ -223,6 +249,14 @@ impl ServerConfig {
 
     pub fn image(&self) -> &ImageConfig {
         self.image.as_ref().unwrap_or(&DEFAULT_IMAGE_CONFIG)
+    }
+
+    pub fn mode(&self) -> ServerMode {
+        self.mode
+    }
+
+    pub fn auto_start_api(&self) -> bool {
+        self.auto_start_api
     }
 }
 

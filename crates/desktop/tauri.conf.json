@@ -1,18 +1,18 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "overWeb",
-  "version": "0.1.0",
-  "identifier": "com.tauri.build",
+  "$schema": "../../web/node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Modream",
+  "version": "0.3.4",
+  "identifier": "com.modream.app",
   "build": {
-    "frontendDist": "../out",
+    "frontendDist": "../../web/out",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "pnpm run dev",
-    "beforeBuildCommand": "pnpm run build"
+    "beforeDevCommand": "cd ../../web && pnpm run dev",
+    "beforeBuildCommand": "cd ../../web && pnpm run build"
   },
   "app": {
     "windows": [
       {
-        "title": "private_home",
+        "title": "Modream - 私人媒体库",
         "width": 1200,
         "height": 800,
         "resizable": true,

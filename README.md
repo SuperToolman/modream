@@ -214,7 +214,7 @@ Modream 提供完整的 RESTful API，你可以根据这些 API 来高度定制�
 - **Swagger UI**: http://localhost:8080/swagger-ui - 在线 API 文档和测试工具
 - **详细文档**: 查看 [API.md](API.md) 了解完整的 API 使用指南
 
-## � 相关文档
+## 相关文档
 
 ### 中文文档
 - **[API 文档](docs/zh-CN/API.md)** - 完整的 API 使用指南和接口说明

@@ -3,7 +3,7 @@ use config::{Config, FileFormat}; // 配置管理库，支持多种配置源和�
 use serde::Deserialize; // 反序列化trait，用于从配置源解析数据
 use std::sync::LazyLock;
 
-pub use server::ServerConfig; // 导出服务器配置结构体
+pub use server::{ServerConfig, ServerMode}; // 导出服务器配置结构体和启动模式枚举
 pub use database::DatabaseConfig;
 pub use gamebox::GameboxConfig;
 // 导出数据库配置机构提
