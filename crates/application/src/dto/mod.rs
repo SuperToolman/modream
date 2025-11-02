@@ -13,10 +13,10 @@ pub mod config;
 
 // 重新导出常用的 DTO
 pub use auth::{LoginRequest, LoginResponse};
-pub use user::{RegisterRequest, UserInfo};
+pub use user::{RegisterRequest, UserInfo, FixPasswordsResponse};
 pub use media_library::{CreateMediaLibraryRequest, MediaLibraryInfo};
-pub use manga::{CreateMangaRequest, MangaInfo, PagedResponse};
-pub use manga_chapter::MangaChapterInfo;
-pub use game::{CreateGameRequest, GameInfo};
+pub use manga::{CreateMangaRequest, MangaInfo, PagedResponse, ImageInfo, OptimizedImageListResponse, ThumbnailQuery};
+pub use manga_chapter::{MangaChapterInfo, OptimizedChapterImageListResponse};
+pub use game::{CreateGameRequest, GameInfo, ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPathRequest};
 pub use common::PaginationQuery;
 pub use config::{GameboxConfigResponse, UpdateGameboxConfigRequest};

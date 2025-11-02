@@ -25,5 +25,8 @@ pub trait UserRepository: Send + Sync {
 
     /// 删除用户
     async fn delete(&self, id: i32) -> anyhow::Result<()>;
+
+    /// 更新用户密码
+    async fn update_password(&self, id: i32, hashed_password: String) -> anyhow::Result<()>;
 }
 

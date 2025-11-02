@@ -1,8 +1,8 @@
 # 🎬 Modream（末梦）- 私有媒体库管理系统
 
-**Languages**: [English](README.en.md) | 简体中文
+**Languages**: [English](docs/README.en.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](docs/CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-15.3-black.svg)](https://nextjs.org/)
@@ -419,16 +419,15 @@ server:
 ## 相关文档
 
 ### 中文文档
-- **[API 文档](docs/zh-CN/API.md)** - 完整的 API 使用指南和接口说明
-- **[开发指南](docs/zh-CN/DEVELOPMENT.md)** - 开发环境搭建、代码规范、贡献指南
-- **[更新日志](CHANGELOG.md)** - 版本历史和功能更新记录
-- **[安全指南](docs/zh-CN/SECURITY.md)** - 安全配置和最佳实践
+- **[架构设计说明](docs/ARCHITECTURE.md)** - DDD 分层架构设计和项目结构说明
+- **[部署指南](docs/DEPLOYMENT_GUIDE.md)** - 多种启动模式和部署方式详解
+- **[更新日志](docs/CHANGELOG.md)** - 版本历史和功能更新记录
+- **[API 文档](http://localhost:8080/swagger-ui)** - Swagger UI 在线 API 文档（启动后访问）
 
 ### English Documentation
-- **[API Documentation](docs/en/API.md)** - Complete API usage guide and interface documentation
-- **[Development Guide](docs/en/DEVELOPMENT.md)** - Development setup, code standards, and contribution guide
-- **[Changelog](CHANGELOG.en.md)** - Version history and feature updates
-- **[Security Guide](docs/en/SECURITY.md)** - Security configuration and best practices
+- **[English README](docs/README.en.md)** - English version of README
+- **[Architecture Design](docs/ARCHITECTURE.md)** - DDD layered architecture and project structure
+- **[Deployment Guide](docs/DEPLOYMENT_GUIDE.md)** - Multiple startup modes and deployment methods
 
 ⚠️ **生产环境安全提示**:
 - 修改 JWT_SECRET 为强随机字符串

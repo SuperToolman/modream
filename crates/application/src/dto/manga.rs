@@ -86,3 +86,43 @@ impl From<domain::entity::manga::Model> for MangaInfo {
     }
 }
 
+/// 图片信息 DTO
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ImageInfo {
+    /// 图片索引
+    #[schema(example = 1)]
+    pub index: i32,
+    /// 图片路径
+    #[schema(example = "/path/to/image.jpg")]
+    pub path: String,
+    /// 图片的 API URL，可以直接在前端使用
+    #[schema(example = "/api/manga/12/images/1")]
+    pub url: String,
+}
+
+/// 优化的图片列表响应（减少数据传输）
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OptimizedImageListResponse {
+    /// 图片总数
+    #[schema(example = 100)]
+    pub count: i32,
+    /// URL 模板，前端可以用 {index} 替换为实际索引
+    /// 例如："/api/manga/12/images/{index}"
+    #[schema(example = "/api/manga/12/images/{index}")]
+    pub url_template: String,
+}
+
+/// 缩略图查询参数
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ThumbnailQuery {
+    /// 缩略图宽度（像素），默认 200
+    #[schema(example = 200)]
+    pub width: Option<u32>,
+    /// 缩略图高度（像素），默认 300
+    #[schema(example = 300)]
+    pub height: Option<u32>,
+    /// 图片质量（0-100），默认 85
+    #[schema(example = 85)]
+    pub quality: Option<u8>,
+}
+

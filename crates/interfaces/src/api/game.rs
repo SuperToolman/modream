@@ -1,40 +1,12 @@
 use crate::app::AppState;
 use crate::error::{ApiResult, AppError};
 use crate::response::ApiResponse;
-use application::dto::{GameInfo, PagedResponse, PaginationQuery};
+use application::dto::{GameInfo, PagedResponse, PaginationQuery, ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPathRequest};
 use axum::Router;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing;
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
-
-// region: 扫描游戏请求 DTO
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ScanGamesRequest {
-    /// 要扫描的路径
-    pub path: String,
-    /// 游戏数据库提供者列表（如 "IGDB,DLSITE,STEAMDB"）
-    pub providers: String,
-    /// 所属媒体库 ID
-    pub media_library_id: i32,
-}
-
-/// 启动游戏请求 DTO
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct LaunchGameRequest {
-    /// 启动路径（可选，如果不提供则使用默认启动路径）
-    pub start_path: Option<String>,
-}
-
-/// 更新默认启动路径请求 DTO
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct UpdateDefaultStartPathRequest {
-    /// 默认启动路径
-    pub start_path_default: String,
-}
-// endregion
 
 // region: 根据 ID 查询游戏
 #[utoipa::path(

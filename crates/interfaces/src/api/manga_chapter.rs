@@ -1,36 +1,14 @@
 use crate::app::AppState;
 use crate::error::{ApiResult, AppError};
 use crate::response::ApiResponse;
-use application::dto::MangaChapterInfo;
+use application::dto::{MangaChapterInfo, OptimizedChapterImageListResponse, ThumbnailQuery};
 use axum::Router;
 use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode, header, Response};
 use axum::response::IntoResponse;
 use axum::routing;
-use serde::{Deserialize, Serialize};
 use tokio_util::io::ReaderStream;
-
-/// 优化的章节图片列表响应（减少数据传输）
-#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct OptimizedChapterImageListResponse {
-    /// 图片总数
-    pub count: i32,
-    /// URL 模板，前端可以用 {index} 替换为实际索引
-    /// 例如："/api/manga_chapter/12/5/images/{index}"
-    pub url_template: String,
-}
-
-/// 缩略图查询参数
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ThumbnailQuery {
-    /// 缩略图宽度（像素），默认 200
-    pub width: Option<u32>,
-    /// 缩略图高度（像素），默认 300
-    pub height: Option<u32>,
-    /// 图片质量（0-100），默认 85
-    pub quality: Option<u8>,
-}
 
 // region: 获取漫画的所有章节
 #[utoipa::path(

@@ -102,5 +102,19 @@ impl UserRepository for UserRepositoryImpl {
         User::delete_by_id(id).exec(&self.db).await?;
         Ok(())
     }
+
+    /// 更新用户密码
+    async fn update_password(&self, id: i32, hashed_password: String) -> anyhow::Result<()> {
+        let user = User::find_by_id(id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("User not found"))?;
+
+        let mut active_model: ActiveModel = user.into();
+        active_model.password = Set(Some(hashed_password));
+        active_model.update(&self.db).await?;
+
+        Ok(())
+    }
 }
 

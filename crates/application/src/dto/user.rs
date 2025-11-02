@@ -41,3 +41,17 @@ pub struct UserInfo {
     pub coin: i32,
 }
 
+/// 密码修复响应 DTO
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FixPasswordsResponse {
+    /// 修复的用户数量
+    #[schema(example = 5)]
+    pub fixed_count: usize,
+    /// 总用户数量
+    #[schema(example = 10)]
+    pub total_count: usize,
+    /// 修复消息
+    #[schema(example = "成功修复 5 个用户的密码（共 10 个用户）")]
+    pub message: String,
+}
+

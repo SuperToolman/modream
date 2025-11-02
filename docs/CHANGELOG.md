@@ -7,6 +7,44 @@
 
 ---
 
+## [Unreleased] - 2025-11-02
+
+### 📚 文档和配置管理改进
+
+#### 新增
+
+- ✅ **配置管理 API** - 完整的配置文件读写接口
+  - `GET /api/config` - 读取完整的 `application.yaml` 配置
+  - `PUT /api/config` - 修改 `application.yaml` 配置（需重启服务）
+  - `GET /api/config/gamebox` - 读取 Gamebox 配置（包含 igdb、dlsite、steamdb）
+  - `PUT /api/config/gamebox` - 更新 Gamebox 配置提示
+  - 所有配置接口统一归类到 `config` tag
+  - 添加 `serde_yaml` 依赖用于 YAML 文件处理
+
+- ✅ **DDD 架构开发流程文档** - 完整的开发指南
+  - 在 `docs/DEPLOYMENT_GUIDE.md` 中添加 "DDD 架构开发流程" 章节
+  - 以 Video 模块为例，详细讲解从 Domain 到 Interfaces 的完整开发流程
+  - 包含实体定义、仓储接口、服务实现、API 处理器等完整代码示例
+  - 涵盖数据库迁移、依赖注入、测试等关键步骤
+  - 强调 DDD 开发的关键原则（自下而上、依赖倒置、单一职责等）
+
+#### 改进
+
+- ✅ **文档组织优化** - 统一文档管理
+  - 将 `CHANGELOG.md` 移动到 `docs/CHANGELOG.md`
+  - 将 `README.en.md` 移动到 `docs/README.en.md`
+  - 更新 `README.md` 中的文档引用链接
+  - 简化项目根目录结构
+  - 所有文档统一放在 `docs/` 目录下
+
+- ✅ **Gamebox 配置 DTO 完善** - 返回完整配置
+  - 扩展 `GameboxConfigResponse` 包含 `dlsite` 和 `steamdb` 配置
+  - 添加 `DlsiteConfigResponse` 和 `SteamdbConfigResponse` DTO
+  - 添加 `UpdateDlsiteConfigRequest` 和 `UpdateSteamdbConfigRequest` DTO
+  - 更新 Swagger 文档包含所有新增的 Schema
+
+---
+
 ## [0.4.2] - 2025-11-02
 
 ### � 开发体验优化

@@ -151,3 +151,33 @@ fn format_byte_size(bytes: u64) -> String {
     }
 }
 
+/// 扫描游戏请求 DTO
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ScanGamesRequest {
+    /// 要扫描的路径
+    #[schema(example = "D:/Games")]
+    pub path: String,
+    /// 游戏数据库提供者列表（如 "IGDB,DLSITE,STEAMDB"）
+    #[schema(example = "IGDB")]
+    pub providers: String,
+    /// 所属媒体库 ID
+    #[schema(example = 1)]
+    pub media_library_id: i32,
+}
+
+/// 启动游戏请求 DTO
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct LaunchGameRequest {
+    /// 启动路径（可选，如果不提供则使用默认启动路径）
+    #[schema(example = "game.exe")]
+    pub start_path: Option<String>,
+}
+
+/// 更新默认启动路径请求 DTO
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct UpdateDefaultStartPathRequest {
+    /// 默认启动路径
+    #[schema(example = "game.exe")]
+    pub start_path_default: String,
+}
+

@@ -101,5 +101,50 @@ impl UserService {
             coin: user.coin,
         }
     }
+
+    /// 修复数据库中未哈希的密码
+    ///
+    /// 此方法会：
+    /// 1. 查询所有用户
+    /// 2. 检查每个用户的密码是否已经是 bcrypt 哈希（以 $2 开头）
+    /// 3. 如果不是，则对密码进行哈希处理并更新
+    ///
+    /// 返回修复的用户数量
+    pub async fn fix_password_hashes(&self) -> anyhow::Result<usize> {
+        tracing::info!("开始修复密码哈希...");
+
+        // 获取所有用户
+        let users = self.repo.find_all().await?;
+        tracing::info!("找到 {} 个用户", users.len());
+
+        let mut fixed_count = 0;
+
+        for user in users {
+            if let Some(password) = &user.password {
+                // 检查密码是否已经是 bcrypt 哈希（bcrypt 哈希以 $2 开头）
+                if !password.starts_with("$2") {
+                    tracing::info!(
+                        "正在修复用户 {} ({}): 密码未哈希",
+                        user.id,
+                        user.e_mail.as_ref().unwrap_or(&"unknown".to_string())
+                    );
+
+                    // 对密码进行哈希处理
+                    let hashed = PasswordService::hash_password(password)?;
+
+                    // 更新用户密码
+                    self.repo.update_password(user.id, hashed).await?;
+
+                    tracing::info!("✅ 用户 {} 密码已更新", user.id);
+                    fixed_count += 1;
+                } else {
+                    tracing::debug!("⏭️  用户 {} 密码已是哈希格式，跳过", user.id);
+                }
+            }
+        }
+
+        tracing::info!("✅ 密码修复完成！共修复 {} 个用户", fixed_count);
+        Ok(fixed_count)
+    }
 }
 

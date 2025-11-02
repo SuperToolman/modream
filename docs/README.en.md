@@ -1,8 +1,8 @@
 # 🎬 Modream - Private Media Library Management System
 
-**Languages**: English | [简体中文](README.md)
+**Languages**: English | [简体中文](../README.md)
 
-[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](CHANGELOG.en.md)
+[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-15.3-black.svg)](https://nextjs.org/)

@@ -34,3 +34,15 @@ impl From<domain::entity::manga_chapter::Model> for MangaChapterInfo {
     }
 }
 
+/// 优化的章节图片列表响应（减少数据传输）
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct OptimizedChapterImageListResponse {
+    /// 图片总数
+    #[schema(example = 50)]
+    pub count: i32,
+    /// URL 模板，前端可以用 {index} 替换为实际索引
+    /// 例如："/api/manga_chapter/12/5/images/{index}"
+    #[schema(example = "/api/manga_chapter/12/5/images/{index}")]
+    pub url_template: String,
+}
+
