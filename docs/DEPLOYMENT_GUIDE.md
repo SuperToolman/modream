@@ -1,8 +1,77 @@
 # Modream 部署指南
 
-## 📦 三种启动模式
+> 📚 **相关文档**：[架构设计说明](ARCHITECTURE.md) | [快速开始](../README.md#快速开始)
 
-Modream 支持三种灵活的启动模式，可以通过配置文件或命令行参数控制。
+## 📦 启动模式概览
+
+Modream 支持多种灵活的启动模式，可以通过配置文件或命令行参数控制。
+
+| 模式 | 命令 | 用途 | 前端 | API |
+|------|------|------|------|-----|
+| **开发模式** | `./start-dev.ps1` 或 `./start-dev.sh` | 日常开发 | ✅ (热重载) | ✅ |
+| **桌面模式** | `cargo run --bin desktop` | 个人使用 | ✅ (Tauri) | ✅ |
+| **服务器模式** | `cargo run --bin desktop -- --server` | 服务器部署 | ❌ | ✅ |
+| **GUI 模式** | `cargo run --bin desktop -- --gui` | 连接远程 API | ✅ (Tauri) | ❌ |
+
+---
+
+## 🛠️ 模式 0：开发模式（Development Mode）⭐
+
+**适用场景**：日常开发、前端热重载、后端调试
+
+### 一键启动（推荐）
+
+**Windows**：
+```powershell
+# 安装依赖（首次运行）
+cd web
+pnpm install
+cd ..
+
+# 启动开发环境
+.\start-dev.ps1
+```
+
+**Linux/Mac**：
+```bash
+# 安装依赖（首次运行）
+cd web
+pnpm install
+cd ..
+
+# 启动开发环境
+chmod +x start-dev.sh
+./start-dev.sh
+
+# 停止服务
+./stop-dev.sh
+```
+
+### 手动启动
+
+如果你需要更精细的控制，可以手动启动：
+
+```bash
+# 终端 1：启动 WebAPI
+cargo run --bin desktop -- --server
+
+# 终端 2：启动前端开发服务器
+cd web
+pnpm run dev
+```
+
+### 访问地址
+
+- **前端**：http://localhost:3000（支持热重载）
+- **API**：http://localhost:8080
+- **Swagger**：http://localhost:8080/swagger-ui
+
+### 特点
+
+- ✅ 前端支持热重载，修改代码自动刷新
+- ✅ 后端可以随时重启调试
+- ✅ 前后端完全独立，互不干扰
+- ✅ 适合日常开发和调试
 
 ---
 

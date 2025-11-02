@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 /**
  * 认证 Hook
@@ -9,7 +9,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
  */
 export function useAuth() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -58,10 +57,15 @@ export function useAuth() {
     // Token 已由 API 保存，这里只需要更新状态
     setIsAuthenticated(true);
 
-    // 获取重定向 URL（如果有的话）
-    const from = searchParams.get('from');
-    if (from) {
-      router.push(from);
+    // 获取重定向 URL（如果有的话）- 从 window.location 读取
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const from = urlParams.get('from');
+      if (from) {
+        router.push(from);
+      } else {
+        router.push('/');
+      }
     } else {
       router.push('/');
     }

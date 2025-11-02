@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint --fix",
-    "tauri": "tauri"
+    "tauri": "cd .. && cargo tauri",
+    "tauri:dev": "cd .. && cargo tauri dev",
+    "tauri:build": "cd .. && cargo tauri build"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

@@ -7,6 +7,63 @@
 
 ---
 
+## [0.4.1] - 2025-11-02
+
+### 📚 文档和开发体验改进
+
+#### 新增
+
+- ✅ **开发启动脚本** - 一键启动开发环境
+  - `start-dev.ps1` - Windows PowerShell 脚本
+  - `start-dev.sh` - Linux/Mac Bash 脚本
+  - `stop-dev.sh` - Linux/Mac 停止脚本
+  - 自动检查环境依赖（Rust、Node.js、pnpm）
+  - 自动启动后端 API 和前端开发服务器
+  - 支持热重载和独立调试
+
+- ✅ **文档组织优化** - 创建 `docs/` 目录
+  - `docs/ARCHITECTURE.md` - 详细的架构设计说明
+  - `docs/DEPLOYMENT_GUIDE.md` - 部署指南（从根目录移动）
+  - 说明前后端解耦的设计理念
+  - 解释为什么不使用 `pnpm run tauri dev`
+
+#### 改进
+
+- ✅ **README 优化** - 更清晰的架构说明
+  - 添加架构设计章节，说明 DDD 分层和前后端解耦
+  - 更新快速开始指南，推荐使用启动脚本
+  - 添加启动方式对比表格
+  - 说明动态路由不支持静态导出的原因
+
+- ✅ **前端配置修正** - Next.js 配置
+  - 移除静态导出配置（`output: 'export'`）
+  - 支持动态路由（`/mangas/[id]`, `/games/[id]` 等）
+  - 启用图片优化
+  - 修复 `useAuth` hook 的 `useSearchParams` 兼容性问题
+
+- ✅ **类型定义修复** - Zod v4 兼容性
+  - 修复 `z.record()` 参数错误（需要 2-3 个参数）
+  - `web/types/dto/media_library.dto.ts` 中的类型定义
+
+#### 架构说明
+
+本项目采用**前后端完全解耦**的架构设计：
+
+- **后端**：`crates/` 目录，DDD 分层架构（domain, application, infrastructure, interfaces, shared）
+- **前端**：`web/` 目录，Next.js + React，完全独立
+- **优势**：可以单独开发、测试、部署；支持多种启动模式；团队协作友好
+
+**为什么不使用 `pnpm run tauri dev`？**
+
+Tauri CLI 期望前后端紧密耦合的目录结构，而我们故意选择了解耦架构，以获得：
+- ✅ 更大的灵活性（可以单独部署 API、桌面应用、Web 应用）
+- ✅ 更清晰的代码组织（DDD 分层）
+- ✅ 更适合团队协作（前后端分离）
+
+详见 [架构设计说明](docs/ARCHITECTURE.md)。
+
+---
+
 ## [0.4.0] - 2025-11-02
 
 ### 🏗️ 架构重构 - Workspace 扁平化

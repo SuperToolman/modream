@@ -22,7 +22,6 @@ tauri-build = { version = "2.3.1", features = [] }
 [dependencies]
 # Tauri 依赖
 tauri = { version = "2.7.0", features = [] }
-tauri-plugin-log = "2"
 
 # 集成 WebAPI
 interfaces = { path = "../interfaces" }

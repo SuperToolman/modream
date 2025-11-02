@@ -43,7 +43,7 @@
 - [项目特性](#项目特性)
 - [与其他方案对比](#与其他方案对比)
 - [技术栈](#技术栈)
-- [项目结构](#项目结构)
+- [架构设计](#架构设计)
 - [快速开始](#快速开始)
 - [部署指南](#部署指南)
 - [相关文档](#相关文档)
@@ -181,26 +181,33 @@
 - **SQLite** - 轻量级，支持 JSON
 - **SeaORM** - 类型安全 ORM
 
-## � 项目结构
+## 🏗️ 架构设计
+
+### 项目结构
 
 ```
 modream/
 ├── Cargo.toml                    # Workspace 配置
 ├── application.yaml              # 应用配置
-├── DEPLOYMENT_GUIDE.md           # 部署指南
-├── crates/                       # Rust 代码
-│   ├── application/              # 应用层（服务、DTO）
-│   ├── domain/                   # 领域层（实体、仓储接口）
-│   ├── infrastructure/           # 基础设施层（数据库、文件扫描）
-│   ├── interfaces/               # 接口层（API 端点）
-│   ├── shared/                   # 共享模块（配置、日志）
-│   └── desktop/                  # 桌面应用（Tauri + WebAPI 集成）
+├── start-dev.ps1                 # 开发启动脚本 (Windows)
+├── start-dev.sh                  # 开发启动脚本 (Linux/Mac)
+├── stop-dev.sh                   # 停止脚本 (Linux/Mac)
+├── docs/                         # 项目文档
+│   ├── ARCHITECTURE.md           # 架构设计说明
+│   └── DEPLOYMENT_GUIDE.md       # 部署指南
+├── crates/                       # Rust 后端代码（DDD 分层）
+│   ├── domain/                   # 领域层：核心业务模型
+│   ├── application/              # 应用层：业务逻辑编排
+│   ├── infrastructure/           # 基础设施层：数据库、文件系统
+│   ├── interfaces/               # 接口层：HTTP API、WebSocket
+│   ├── shared/                   # 共享层：日志、配置、工具
+│   └── desktop/                  # 桌面启动器：Tauri 集成
 │       ├── src/
 │       │   ├── main.rs           # 统一入口（支持三种启动模式）
 │       │   ├── lib.rs            # Tauri 逻辑
 │       │   └── server.rs         # WebAPI 启动逻辑
 │       └── tauri.conf.json       # Tauri 配置
-└── web/                          # Next.js 前端
+└── web/                          # Next.js 前端（完全独立）
     ├── package.json
     ├── app/                      # Next.js 应用路由
     ├── components/               # React 组件
@@ -208,11 +215,36 @@ modream/
     └── public/                   # 静态资源
 ```
 
-**架构特点**：
-- **DDD 分层架构** - 清晰的职责分离
-- **Cargo Workspace** - 统一的依赖管理
-- **模块化设计** - 易于扩展和维护
-- **前后端分离** - `crates/` 存放 Rust 代码，`web/` 存放前端代码
+### 架构特点
+
+#### ✅ 前后端完全解耦
+- **后端**：`crates/` 目录，纯 Rust 代码，DDD 分层架构
+- **前端**：`web/` 目录，Next.js + React，完全独立
+- **优势**：可以单独开发、测试、部署
+
+#### ✅ DDD 分层架构
+```
+┌─────────────────────────────────────┐
+│         interfaces (接口层)          │  ← HTTP API、WebSocket
+├─────────────────────────────────────┤
+│       application (应用层)           │  ← 业务逻辑编排
+├─────────────────────────────────────┤
+│         domain (领域层)              │  ← 核心业务模型
+├─────────────────────────────────────┤
+│    infrastructure (基础设施层)       │  ← 数据库、文件系统
+└─────────────────────────────────────┘
+           ↑
+       shared (共享层)  ← 日志、配置、工具
+```
+
+#### ✅ 灵活的启动模式
+- **桌面模式**：`cargo run --bin desktop` - 自动启动 API + Tauri 窗口
+- **服务器模式**：`cargo run --bin desktop -- --server` - 只启动 API
+- **GUI 模式**：`cargo run --bin desktop -- --gui` - 只启动 Tauri 窗口
+- **开发模式**：使用 `start-dev.ps1` 或 `start-dev.sh` - 前端热重载
+
+> 💡 **为什么不使用 `pnpm run tauri dev`？**
+> 我们故意选择了前后端解耦的架构，以获得更大的灵活性和更清晰的代码组织。详见 [架构设计说明](docs/ARCHITECTURE.md)。
 
 ## �🚀 快速开始
 
@@ -221,33 +253,71 @@ modream/
 - Node.js 18+ 和 pnpm
 - SQLite
 
-### 方式 1：桌面应用模式（推荐）
+### 📊 启动方式对比
 
-**一键启动桌面应用 + WebAPI**
+| 模式 | 命令 | 前端 | 热重载 | 适用场景 |
+|------|------|------|--------|----------|
+| **开发模式（一键）** | `./start-dev.ps1` 或 `./start-dev.sh` | 开发服务器 | ✅ | 日常开发（推荐）|
+| **开发模式（手动）** | 2 个终端分别启动 | 开发服务器 | ✅ | 后端调试 |
+| **服务器模式** | `cargo run --bin desktop -- --server` | 无前端 | - | Linux 服务器、Docker |
 
+> **⚠️ 注意**：本项目使用了动态路由（如 `/mangas/[id]`），因此前端必须运行 Next.js 服务器，不支持纯静态导出。
+
+---
+
+### 方式 1：开发模式（推荐）
+
+**适用场景**：日常开发、调试、热重载
+
+#### 选项 A：一键启动（最简单）✨
+
+**Windows**：
+```powershell
+# 1. 克隆项目
+git clone <repo>
+cd modream
+
+# 2. 安装前端依赖
+cd web
+pnpm install
+cd ..
+
+# 3. 一键启动
+.\start-dev.ps1
+```
+
+**Linux/Mac**：
 ```bash
 # 1. 克隆项目
 git clone <repo>
 cd modream
 
-# 2. 编译前端
+# 2. 安装前端依赖
 cd web
 pnpm install
-pnpm run build
-
-# 3. 启动桌面应用（自动启动 WebAPI）
 cd ..
-cargo run --bin desktop
+
+# 3. 一键启动
+chmod +x start-dev.sh
+./start-dev.sh
+
+# 停止服务
+./stop-dev.sh
 ```
 
+**这会自动**：
+1. 启动 WebAPI（8080 端口）
+2. 启动 Next.js 开发服务器（3000 端口，支持热重载）
+3. 打开 2 个终端窗口
+
 **访问**：
-- 桌面应用会自动打开
+- 前端: http://localhost:3000
 - API: http://localhost:8080
 - Swagger: http://localhost:8080/swagger-ui
 
-### 方式 2：开发模式
+#### 选项 B：手动启动（适合后端调试）
 
-**分离启动前后端（适合开发调试）**
+分别启动前后端，方便独立调试：
 
 ```bash
 # 终端 1：启动 WebAPI
@@ -266,20 +336,27 @@ cargo run --bin desktop -- --gui
 - API: http://localhost:8080
 - Swagger: http://localhost:8080/swagger-ui
 - Web: http://localhost:3000
+- 桌面应用（如果启动了终端 3）
 
-### 方式 3：服务器模式
+---
 
-**只启动 WebAPI（适用于 Linux 服务器、Docker）**
+### 方式 2：纯服务器模式（无桌面 UI）
+
+**适用场景**：Linux 服务器、Docker 容器、远程部署
+
+**特点**：
+- ✅ 只启动 WebAPI（不启动桌面窗口）
+- ✅ 可从其他设备访问（0.0.0.0:8080）
+- ✅ 适合服务器部署、Docker 容器
 
 ```bash
-# 编辑配置文件
+# 方式 A：使用命令行参数
+cargo run --bin desktop -- --server
+
+# 方式 B：修改配置文件
 nano application.yaml
 # 设置 server.mode: server
-
-# 启动服务
 cargo run --bin desktop
-# 或使用命令行参数
-cargo run --bin desktop -- --server
 ```
 
 **访问**：
