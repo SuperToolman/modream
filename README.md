@@ -43,7 +43,9 @@
 - [项目特性](#项目特性)
 - [与其他方案对比](#与其他方案对比)
 - [技术栈](#技术栈)
+- [项目结构](#项目结构)
 - [快速开始](#快速开始)
+- [部署指南](#部署指南)
 - [相关文档](#相关文档)
 
 ## ✨ 项目特性
@@ -179,33 +181,110 @@
 - **SQLite** - 轻量级，支持 JSON
 - **SeaORM** - 类型安全 ORM
 
-## 🚀 快速开始
+## � 项目结构
+
+```
+modream/
+├── Cargo.toml                    # Workspace 配置
+├── application.yaml              # 应用配置
+├── DEPLOYMENT_GUIDE.md           # 部署指南
+├── crates/                       # Rust 代码
+│   ├── application/              # 应用层（服务、DTO）
+│   ├── domain/                   # 领域层（实体、仓储接口）
+│   ├── infrastructure/           # 基础设施层（数据库、文件扫描）
+│   ├── interfaces/               # 接口层（API 端点）
+│   ├── shared/                   # 共享模块（配置、日志）
+│   └── desktop/                  # 桌面应用（Tauri + WebAPI 集成）
+│       ├── src/
+│       │   ├── main.rs           # 统一入口（支持三种启动模式）
+│       │   ├── lib.rs            # Tauri 逻辑
+│       │   └── server.rs         # WebAPI 启动逻辑
+│       └── tauri.conf.json       # Tauri 配置
+└── web/                          # Next.js 前端
+    ├── package.json
+    ├── app/                      # Next.js 应用路由
+    ├── components/               # React 组件
+    ├── lib/                      # 工具函数和 API 客户端
+    └── public/                   # 静态资源
+```
+
+**架构特点**：
+- **DDD 分层架构** - 清晰的职责分离
+- **Cargo Workspace** - 统一的依赖管理
+- **模块化设计** - 易于扩展和维护
+- **前后端分离** - `crates/` 存放 Rust 代码，`web/` 存放前端代码
+
+## �🚀 快速开始
 
 ### 前置要求
 - Rust 1.70+
 - Node.js 18+ 和 pnpm
 - SQLite
 
-### 启动开发
+### 方式 1：桌面应用模式（推荐）
+
+**一键启动桌面应用 + WebAPI**
 
 ```bash
-# 终端 1：后端
-cargo run --bin interfaces
+# 1. 克隆项目
+git clone <repo>
+cd modream
 
-# 终端 2：前端
-cd tauri-app
+# 2. 编译前端
+cd web
+pnpm install
+pnpm run build
+
+# 3. 启动桌面应用（自动启动 WebAPI）
+cd ..
+cargo run --bin desktop
+```
+
+**访问**：
+- 桌面应用会自动打开
+- API: http://localhost:8080
+- Swagger: http://localhost:8080/swagger-ui
+
+### 方式 2：开发模式
+
+**分离启动前后端（适合开发调试）**
+
+```bash
+# 终端 1：启动 WebAPI
+cargo run --bin desktop -- --server
+
+# 终端 2：启动前端开发服务器
+cd web
 pnpm install
 pnpm run dev
 
-# 或启动Tauri桌面应用
-cd tauri-app
-pnpm install
-pnpm tauri dev
+# 终端 3：启动桌面应用（可选）
+cargo run --bin desktop -- --gui
 ```
-访问：
+
+**访问**：
 - API: http://localhost:8080
 - Swagger: http://localhost:8080/swagger-ui
 - Web: http://localhost:3000
+
+### 方式 3：服务器模式
+
+**只启动 WebAPI（适用于 Linux 服务器、Docker）**
+
+```bash
+# 编辑配置文件
+nano application.yaml
+# 设置 server.mode: server
+
+# 启动服务
+cargo run --bin desktop
+# 或使用命令行参数
+cargo run --bin desktop -- --server
+```
+
+**访问**：
+- API: http://0.0.0.0:8080（可从其他设备访问）
+- Swagger: http://0.0.0.0:8080/swagger-ui
 
 ### API 使用
 
@@ -213,6 +292,66 @@ Modream 提供完整的 RESTful API，你可以根据这些 API 来高度定制�
 
 - **Swagger UI**: http://localhost:8080/swagger-ui - 在线 API 文档和测试工具
 - **详细文档**: 查看 [API.md](API.md) 了解完整的 API 使用指南
+
+## 📦 部署指南
+
+Modream 支持三种灵活的部署模式，详见 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)：
+
+### 🖥️ 桌面应用部署
+
+```bash
+# 编译发布版本
+cargo build --release --bin desktop
+
+# 运行（默认 desktop 模式）
+./target/release/desktop
+```
+
+### 🐧 Linux 服务器部署
+
+**使用 systemd**：
+
+```ini
+# /etc/systemd/system/modream.service
+[Unit]
+Description=Modream Media Library Server
+After=network.target
+
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/opt/modream
+ExecStart=/opt/modream/desktop
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable modream
+sudo systemctl start modream
+```
+
+### 🐳 Docker 部署
+
+```bash
+docker build -t modream .
+docker run -d -p 8080:8080 -v /path/to/data:/data modream
+```
+
+### ⚙️ 配置文件
+
+编辑 `application.yaml` 控制启动模式：
+
+```yaml
+server:
+  mode: desktop  # desktop | server | gui
+  auto_start_api: true
+  port: 8080
+```
+
+**更多详情**：查看 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 
 ## 相关文档
 
