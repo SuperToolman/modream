@@ -4,4 +4,5 @@ pub use super::author::Entity as Author;
 pub use super::game::Entity as Game;
 pub use super::manga::Entity as Manga;
 pub use super::media_library::Entity as MediaLibrary;
+pub use super::movie::Entity as Movie;
 pub use super::user::Entity as User;

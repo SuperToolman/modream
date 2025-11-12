@@ -18,7 +18,7 @@ export default function SettingLayout({ children }: { children: React.ReactNode 
     };
 
     return (
-        <div className='flex gap-4 w-full min-h-0 flex-1'>
+        <div className='flex gap-4 w-full flex-1 h-full'>
             {/* 左侧 Sidebar - 固定宽度 */}
             <div className='w-64 min-h-0 overflow-y-auto flex-shrink-0'>
                 <Sidebar />

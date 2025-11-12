@@ -18,6 +18,7 @@ pub mod media_library;
 pub mod manga;
 pub mod manga_chapter;
 pub mod game;
+pub mod movie;
 pub mod config;
 
 /// 请求日志中间件 - 记录所有请求的详细信息
@@ -67,7 +68,8 @@ pub fn create_router() -> Router<AppState> {
                 .nest("/manga", manga::routes())  // 漫画路由（包含图片相关接口）
                 .nest("/manga_chapter", manga_chapter::routes())  // 章节路由独立，保持清晰的分类
                 .nest("/config", config::routes())
-                .merge(game::routes()),
+                .merge(game::routes())
+                .merge(movie::routes()),
         )
         .fallback(async || -> ApiResult<()> {
             // tracing::warn!(

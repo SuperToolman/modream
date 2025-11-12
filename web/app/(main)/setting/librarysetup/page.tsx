@@ -6,6 +6,7 @@ import {LibraryCar} from "./components/librarycar"
 import {LoadingLibraryCar} from "./components/loading-library-car"
 import {useTheme} from "next-themes";
 import {useIsSSR} from "@react-aria/ssr";
+import {Divider} from "@heroui/divider";
 import clsx from "clsx";
 import type {LocalLibraryData} from "./components/local-library-form";
 import type {WebDAVLibraryData} from "./components/webdav-library-form";
@@ -113,6 +114,28 @@ export default function LibrarySetup() {
                     setCreatingLibrary(prev => prev ? {
                         ...prev,
                         message: `正在扫描漫画文件夹（支持格式: ${data.comicFormats}）...`
+                    } : null);
+                }
+
+                // 电影类型配置
+                if (data.type === "电影") {
+                    if (data.movieMetadataDownloaders) {
+                        config.movieMetadataDownloaders = data.movieMetadataDownloaders;
+                    }
+                    if (data.movieLanguage) {
+                        config.movieLanguage = data.movieLanguage;
+                    }
+                    if (data.movieMinFileSize !== undefined) {
+                        config.movieMinFileSize = data.movieMinFileSize;
+                    }
+                    const languageDisplay = data.movieLanguage === "zh-CN" ? "简体中文" :
+                        data.movieLanguage === "zh-TW" ? "繁體中文" :
+                        data.movieLanguage === "en-US" ? "English" :
+                        data.movieLanguage === "ja-JP" ? "日本語" : "简体中文";
+                    const fileSizeDisplay = data.movieMinFileSize ? `${data.movieMinFileSize}MB` : "300MB";
+                    setCreatingLibrary(prev => prev ? {
+                        ...prev,
+                        message: `正在扫描电影文件夹并从 ${data.movieMetadataDownloaders || 'TMDB'} 获取元数据（语言: ${languageDisplay}，最小文件: ${fileSizeDisplay}）...`
                     } : null);
                 }
 
@@ -229,17 +252,37 @@ export default function LibrarySetup() {
         }
     };
 
+    const themeStyles = {
+        background: isDark ? 'bg-gray-900' : 'bg-white',
+        text: isDark ? 'text-gray-100' : 'text-gray-900',
+        textSecondary: isDark ? 'text-gray-400' : 'text-gray-600',
+        cardBg: isDark ? 'bg-gray-800' : 'bg-gray-50',
+        border: isDark ? 'border-gray-700' : 'border-gray-200',
+    };
+
     return (
-        <div className={clsx(
-            "librarysetup-wrap flex flex-col gap-6 p-6",
-            isDark ? "bg-gray-950" : "bg-white"
-        )}>
-            <Navbar isDark={isDark} onAddLibrary={handleAddLibrary}/>
+        <div className="space-y-6">
+            {/* 页面标题和操作按钮 */}
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className={clsx("text-2xl font-bold mb-2", themeStyles.text)}>
+                        媒体库设置
+                    </h1>
+                    <p className={themeStyles.textSecondary}>
+                        管理你的媒体库，添加本地或 WebDAV 媒体库
+                    </p>
+                </div>
+
+                {/* 操作按钮 */}
+                <Navbar onAddLibrary={handleAddLibrary}/>
+            </div>
+
+            <Divider />
 
             {/* 加载状态 */}
             {loading && (
                 <div className="text-center py-8">
-                    <p className={isDark ? "text-gray-400" : "text-gray-600"}>加载中...</p>
+                    <p className={themeStyles.textSecondary}>加载中...</p>
                 </div>
             )}
 
@@ -250,9 +293,9 @@ export default function LibrarySetup() {
                 </div>
             )}
 
-            {/* 媒体库卡片网格 */}
+            {/* 媒体库卡片网格 - 4列，最多2行 */}
             {!loading && (libraries.length > 0 || creatingLibrary) ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-4 auto-rows-fr gap-6 overflow-auto">
                     {/* 创建中的媒体库卡片 */}
                     {creatingLibrary && (
                         <LoadingLibraryCar
@@ -299,7 +342,7 @@ export default function LibrarySetup() {
                 </div>
             ) : !loading && (
                 <div className={clsx(
-                    "text-center py-8 rounded-lg",
+                    "flex items-center justify-center py-20 rounded-lg",
                     isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"
                 )}>
                     <p>暂无媒体库，请添加一个新的媒体库</p>

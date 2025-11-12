@@ -45,13 +45,32 @@ interface LibraryCarProps {
   onChangeType?: () => void;
 }
 
+// 根据媒体库类型获取默认封面
+const getDefaultCover = (type: LibraryType): string => {
+  const coverMap: Record<LibraryType, string> = {
+    "电影": "/assets/image/default_cover_电影.png",
+    "视频": "/assets/image/default_cover_视频.png",
+    "音乐": "/assets/image/default_cover_音乐.png",
+    "电视节目": "/assets/image/default_cover_电视节目.png",
+    "有声读物": "/assets/image/default_cover_有声读物.png",
+    "书籍": "/assets/image/default_cover_书籍.png",
+    "游戏": "/assets/image/game_cover_defualt.png",
+    "漫画": "/assets/image/default_cover_漫画.png",
+    "音乐视频": "/assets/image/default_cover_音乐视频.png",
+    "照片": "/assets/image/default_cover_照片.png",
+    "混合内容": "/assets/image/default_cover_漫画内容.png",
+  };
+
+  return coverMap[type] || "/assets/image/default_cover_电影.png";
+};
+
 /**
  * 媒体库卡片组件
  * 展示媒体库的基本信息，包括封面、标题、类型、路径、源等
  */
 export const LibraryCar = ({
   title = "我的电影库",
-  cover = "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=400&h=300&fit=crop",
+  cover,
   type = "电影",
   path = "/media/movies",
   source = "local",
@@ -67,6 +86,9 @@ export const LibraryCar = ({
   const { theme } = useTheme();
   const isSSR = useIsSSR();
   const isDark = theme === 'dark' && !isSSR;
+
+  // 使用自定义封面或默认封面
+  const displayCover = cover || getDefaultCover(type);
 
   // 获取类型对应的颜色
   const getTypeColor = (type: LibraryType) => {
@@ -122,7 +144,7 @@ export const LibraryCar = ({
           <Image
             alt={title}
             className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-            src={cover}
+            src={displayCover}
             removeWrapper
           />
 

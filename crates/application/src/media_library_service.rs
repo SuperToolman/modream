@@ -1,4 +1,4 @@
-use domain::repository::{MediaLibraryRepository, MangaRepository, MangaChapterRepository, GameRepository};
+use domain::repository::{MediaLibraryRepository, MangaRepository, MangaChapterRepository, GameRepository, MovieRepository};
 use infrastructure::file_scanner;
 use std::sync::Arc;
 use crate::dto::CreateMediaLibraryRequest;
@@ -10,6 +10,7 @@ pub struct MediaLibraryService {
     manga_repo: Arc<dyn MangaRepository>,
     manga_chapter_repo: Arc<dyn MangaChapterRepository>,
     game_repo: Arc<dyn GameRepository>,
+    movie_repo: Arc<dyn MovieRepository>,
     image_service: Arc<ImageService>,
 }
 
@@ -20,6 +21,7 @@ impl MediaLibraryService {
         manga_repo: Arc<dyn MangaRepository>,
         manga_chapter_repo: Arc<dyn MangaChapterRepository>,
         game_repo: Arc<dyn GameRepository>,
+        movie_repo: Arc<dyn MovieRepository>,
         image_service: Arc<ImageService>,
     ) -> Self {
         Self {
@@ -27,6 +29,7 @@ impl MediaLibraryService {
             manga_repo,
             manga_chapter_repo,
             game_repo,
+            movie_repo,
             image_service,
         }
     }
@@ -44,7 +47,7 @@ impl MediaLibraryService {
     /// 删除媒体库
     ///
     /// # 业务规则
-    /// - 删除媒体库时，必须先删除所有关联的游戏和漫画
+    /// - 删除媒体库时，必须先删除所有关联的游戏、漫画和电影
     /// - 使用事务确保数据一致性
     ///
     /// # 参数
@@ -77,7 +80,16 @@ impl MediaLibraryService {
             }
         }
 
-        // 4. 删除媒体库本身
+        // 4. 删除所有关联的电影
+        let movies = self.movie_repo.find_by_media_library_id(id).await?;
+        if !movies.is_empty() {
+            tracing::info!("Deleting {} movies associated with media library {}", movies.len(), id);
+            for movie in movies {
+                self.movie_repo.delete(movie.id).await?;
+            }
+        }
+
+        // 5. 删除媒体库本身
         self.media_library_repo.delete(id).await?;
 
         tracing::info!("Successfully deleted media library {} and all associated resources", id);
@@ -161,6 +173,20 @@ impl MediaLibraryService {
                     // ✅ 使用新方法：直接从 GameInfo 转换并添加到聚合根（保留完整元数据）
                     let added_count = aggregate.add_games_from_game_info_batch(game_infos)?;
                     tracing::info!("Added {} games to media library with full metadata", added_count);
+                }
+                "电影" => {
+                    // 从配置中提取电影元数据语言和文件大小过滤配置
+                    let (language, min_file_size_mb) = self.extract_movie_config(&aggregate.media_library.config_json)?;
+
+                    // 扫描电影文件夹（使用配置的语言和文件大小过滤）
+                    let video_scan_results = self.scan_movie_folders_with_config(&req.paths_json, language, min_file_size_mb).await?;
+
+                    tracing::info!("Scanned {} movies from folders", video_scan_results.len());
+
+                    // 转换为 Movie 实体并添加到聚合根
+                    let movies = self.convert_video_scan_to_movies(video_scan_results, aggregate.media_library.id)?;
+                    let added_count = aggregate.add_movies_batch(movies)?;
+                    tracing::info!("Added {} movies to media library with full metadata", added_count);
                 }
                 _ => {
                     tracing::warn!("Media type {} is scannable but not implemented", req.media_type);
@@ -258,6 +284,20 @@ impl MediaLibraryService {
 
             // 批量插入游戏（保留 gamebox 返回的真实封面 URL）
             self.game_repo.create_batch(games).await?;
+        }
+
+        // 批量创建电影
+        if !aggregate.movies.is_empty() {
+            // 更新电影的 media_library_id（因为数据库生成了 ID）
+            let mut movies = aggregate.movies;
+            for movie in &mut movies {
+                movie.media_library_id = media_library.id;
+            }
+
+            tracing::info!("Creating {} movies for media library {}", movies.len(), media_library.id);
+
+            // 批量插入电影
+            self.movie_repo.create_batch(movies).await?;
         }
 
         Ok(media_library)
@@ -436,6 +476,72 @@ impl MediaLibraryService {
         Ok(providers.to_string())
     }
 
+    /// 从配置 JSON 中提取电影元数据语言和文件大小过滤配置
+    ///
+    /// # 参数
+    /// - `config_json`: 配置 JSON 字符串
+    ///
+    /// # 返回
+    /// - `anyhow::Result<(Language, u64)>` - (电影元数据语言, 最小文件大小 MB)
+    ///
+    /// # 默认值
+    /// - 如果配置中没有 movieLanguage，返回默认值 ChineseSimplified
+    /// - 如果配置中没有 movieMinFileSize，返回默认值 300MB
+    ///
+    /// # 配置示例
+    /// ```json
+    /// {
+    ///   "movieMetadataDownloaders": ["theMovieDb", "theTVDB"],
+    ///   "movieLanguage": "zh-CN",
+    ///   "movieMinFileSize": 300
+    /// }
+    /// ```
+    fn extract_movie_config(&self, config_json: &str) -> anyhow::Result<(infrastructure::file_scanner::movie_scaner::models::language::Language, u64)> {
+        use infrastructure::file_scanner::movie_scaner::models::language::Language;
+
+        if config_json.is_empty() || config_json == "{}" {
+            tracing::warn!("No movie config found, using defaults: ChineseSimplified, 300MB");
+            return Ok((Language::default(), 300));
+        }
+
+        let config: serde_json::Value = serde_json::from_str(config_json)
+            .map_err(|e| anyhow::anyhow!("Failed to parse config JSON: {}", e))?;
+
+        // 提取语言配置
+        let language_code = config
+            .get("movieLanguage")
+            .and_then(|v| v.as_str())
+            .unwrap_or("zh-CN");
+
+        // 将语言代码转换为 Language 枚举
+        let language = match language_code {
+            "en-US" => Language::English,
+            "zh-CN" => Language::ChineseSimplified,
+            "zh-TW" => Language::ChineseTraditional,
+            "ja-JP" => Language::Japanese,
+            "ko-KR" => Language::Korean,
+            "fr-FR" => Language::French,
+            "de-DE" => Language::German,
+            "es-ES" => Language::Spanish,
+            "it-IT" => Language::Italian,
+            "pt-BR" => Language::Portuguese,
+            "ru-RU" => Language::Russian,
+            _ => {
+                tracing::warn!("Unknown language code: {}, using default: ChineseSimplified", language_code);
+                Language::ChineseSimplified
+            }
+        };
+
+        // 提取最小文件大小配置（MB）
+        let min_file_size_mb = config
+            .get("movieMinFileSize")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(300); // 默认 300MB
+
+        tracing::info!("Extracted movie config - language: {} ({}), min file size: {}MB", language.display_name(), language.code(), min_file_size_mb);
+        Ok((language, min_file_size_mb))
+    }
+
     /// 扫描游戏文件夹（异步版本，支持并行扫描多个路径）
     ///
     /// # 参数
@@ -507,6 +613,204 @@ impl MediaLibraryService {
     }
 
     // endregion
+    /// 扫描电影文件夹（异步版本，支持并行扫描多个路径，使用指定语言）
+    ///
+    /// # 参数
+    /// - `paths_json`: 路径 JSON 数组
+    /// - `language`: 元数据语言
+    /// - `min_file_size_mb`: 最小文件大小（MB），用于过滤非电影文件
+    ///
+    /// # 返回
+    /// - `anyhow::Result<Vec<infrastructure::file_scanner::movie_scaner::models::video::VideoScanQueryResult>>` - 扫描到的电影信息列表
+    ///
+    /// # DDD 设计
+    /// - ✅ 基础设施层：video_scan_with_options() - 只负责扫描文件夹，刮削元数据
+    /// - ✅ 应用层：编排扫描逻辑，处理多路径并行扫描
+    async fn scan_movie_folders_with_config(
+        &self,
+        paths_json: &str,
+        language: infrastructure::file_scanner::movie_scaner::models::language::Language,
+        min_file_size_mb: u64,
+    ) -> anyhow::Result<Vec<infrastructure::file_scanner::movie_scaner::models::video::VideoScanQueryResult>> {
+        use infrastructure::file_scanner::movie_scaner::models::scan_mode::ScanMode;
+
+        // 解析 JSON 路径数组
+        let paths: Vec<String> = serde_json::from_str(paths_json)
+            .unwrap_or_else(|_| vec![paths_json.to_string()]);
+
+        // 创建扫描模式（使用配置的最小文件大小）
+        let scan_mode = ScanMode::movies_only_with_min_size(min_file_size_mb);
+
+        // 如果只有一个路径，直接顺序扫描（避免并行开销）
+        if paths.len() == 1 {
+            let path = &paths[0];
+            tracing::info!("Scanning movies in single path: {} (language: {}, min size: {}MB)",
+                path, language.display_name(), min_file_size_mb);
+
+            // ✅ 基础设施层：扫描电影文件夹（使用指定语言和文件大小过滤）
+            let video_results = infrastructure::file_scanner::video_scan_with_options(path.clone(), language, scan_mode)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to scan movies: {}", e))?;
+
+            tracing::info!("Found {} movies in {}", video_results.len(), path);
+            return Ok(video_results);
+        }
+
+        // 多路径：并行扫描所有路径
+        tracing::info!("Scanning movies in {} paths (parallel mode, language: {}, min size: {}MB)",
+            paths.len(), language.display_name(), min_file_size_mb);
+
+        // 创建并行任务
+        let mut tasks = Vec::new();
+        for path in paths {
+            let scan_mode_clone = scan_mode.clone();
+            let task = tokio::spawn(async move {
+                tracing::debug!("Scanning movie path: {} (language: {}, min size: {}MB)",
+                    path, language.display_name(), min_file_size_mb);
+                // ✅ 基础设施层：扫描电影文件夹（使用指定语言和文件大小过滤）
+                let result = infrastructure::file_scanner::video_scan_with_options(path.clone(), language, scan_mode_clone).await;
+                (path, result)
+            });
+            tasks.push(task);
+        }
+
+        // 等待所有任务完成
+        let mut all_results = Vec::new();
+        for task in tasks {
+            let (path, result) = task.await
+                .map_err(|e| anyhow::anyhow!("Task join error: {}", e))?;
+
+            match result {
+                Ok(mut videos) => {
+                    tracing::info!("Found {} movies in {}", videos.len(), path);
+                    all_results.append(&mut videos);
+                }
+                Err(e) => {
+                    tracing::error!("Failed to scan movies in {}: {}", path, e);
+                    return Err(anyhow::anyhow!("Failed to scan movies in {}: {}", path, e));
+                }
+            }
+        }
+
+        tracing::info!("Total movies found: {}", all_results.len());
+        Ok(all_results)
+    }
+
+    /// 将 VideoScanQueryResult 转换为 Movie 实体列表
+    ///
+    /// # 参数
+    /// - `video_results`: 视频扫描结果列表
+    /// - `media_library_id`: 所属媒体库 ID
+    ///
+    /// # 返回
+    /// - `anyhow::Result<Vec<domain::entity::movie::Model>>` - 电影实体列表
+    fn convert_video_scan_to_movies(
+        &self,
+        video_results: Vec<infrastructure::file_scanner::movie_scaner::models::video::VideoScanQueryResult>,
+        media_library_id: i32,
+    ) -> anyhow::Result<Vec<domain::entity::movie::Model>> {
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let mut movies = Vec::new();
+
+        for video in video_results {
+            // 计算分辨率字符串
+            let resolution = if video.width > 0 && video.height > 0 {
+                Some(format!("{}x{}", video.width, video.height))
+            } else {
+                None
+            };
+
+            // 将 Vec<String> 转换为 JSON 字符串
+            let genres = if !video.genres.is_empty() {
+                Some(serde_json::to_string(&video.genres)?)
+            } else {
+                None
+            };
+
+            let actors = if !video.actors.is_empty() {
+                Some(serde_json::to_string(&video.actors)?)
+            } else {
+                None
+            };
+
+            let directors = if !video.directors.is_empty() {
+                Some(serde_json::to_string(&video.directors)?)
+            } else {
+                None
+            };
+
+            let writers = if !video.writers.is_empty() {
+                Some(serde_json::to_string(&video.writers)?)
+            } else {
+                None
+            };
+
+            let producers = if !video.producers.is_empty() {
+                Some(serde_json::to_string(&video.producers)?)
+            } else {
+                None
+            };
+
+            let tags = if !video.tags.is_empty() {
+                Some(serde_json::to_string(&video.tags)?)
+            } else {
+                None
+            };
+
+            let poster_urls = if !video.poster_urls.is_empty() {
+                Some(serde_json::to_string(&video.poster_urls)?)
+            } else {
+                None
+            };
+
+            // 使用第一个海报作为封面
+            let cover = video.poster_urls.first().cloned();
+
+            let description = if !video.description.is_empty() {
+                Some(video.description.clone())
+            } else {
+                None
+            };
+
+            let release_date = if !video.release_date.is_empty() {
+                Some(video.release_date.clone())
+            } else {
+                None
+            };
+
+            let movie = domain::entity::movie::Model {
+                id: 0, // 数据库会自动生成
+                create_time: now.clone(),
+                update_time: now.clone(),
+                title: video.title.clone(),
+                original_title: None,
+                description,
+                path: video.path.clone(),
+                byte_size: video.byte_size as i64,
+                extension: Some(video.extension.clone()),
+                duration: video.duration as i32,
+                width: video.width as i32,
+                height: video.height as i32,
+                resolution,
+                release_date,
+                rating: video.rating,
+                votes: video.votes as i32,
+                genres,
+                actors,
+                directors,
+                writers,
+                producers,
+                tags,
+                poster_urls,
+                cover,
+                media_library_id,
+            };
+
+            movies.push(movie);
+        }
+
+        Ok(movies)
+    }
 }
 
 #[cfg(test)]

@@ -28,25 +28,25 @@ interface MovieCardProps {
 }
 
 export default function MovieCard({
-    id = "1",
-    title = "奥本海默",
-    originalTitle = "Oppenheimer",
-    director = "克里斯托弗·诺兰",
-    year = "2023",
-    duration = "180分钟",
-    rating = 8.8,
-    imdbRating = 8.3,
-    genre = ["剧情", "传记", "历史"],
-    country = "美国",
-    language = "英语",
-    poster = getPlaceholderImage('movies', 0),
-    views = "1250万",
-    likes = "89万",
-    quality = "4K",
-    type = "电影",
+    id,
+    title,
+    originalTitle,
+    director,
+    year,
+    duration,
+    rating,
+    imdbRating,
+    genre = [],
+    country,
+    language,
+    poster,
+    views,
+    likes,
+    quality,
+    type,
     isCollected = false,
-    hasSubtitle = true,
-    releaseDate = "2023-08-30"
+    hasSubtitle = false,
+    releaseDate
 }: MovieCardProps) {
     const getQualityColor = (quality: string) => {
         switch (quality) {
@@ -80,28 +80,32 @@ export default function MovieCard({
                         />
                         
                         {/* 画质标签 */}
-                        <div className="absolute top-3 left-3 z-10">
-                            <Chip 
-                                size="sm" 
-                                color={getQualityColor(quality) as any}
-                                variant="solid"
-                                className="text-white font-bold"
-                            >
-                                {quality}
-                            </Chip>
-                        </div>
+                        {quality && (
+                            <div className="absolute top-3 left-3 z-10">
+                                <Chip
+                                    size="sm"
+                                    color={getQualityColor(quality) as any}
+                                    variant="solid"
+                                    className="text-white font-bold"
+                                >
+                                    {quality}
+                                </Chip>
+                            </div>
+                        )}
 
                         {/* 类型标签 */}
-                        <div className="absolute top-3 right-3 z-10">
-                            <Chip 
-                                size="sm" 
-                                color={getTypeColor(type) as any}
-                                variant="flat"
-                                className="bg-black/70 text-white"
-                            >
-                                {type}
-                            </Chip>
-                        </div>
+                        {type && (
+                            <div className="absolute top-3 right-3 z-10">
+                                <Chip
+                                    size="sm"
+                                    color={getTypeColor(type) as any}
+                                    variant="flat"
+                                    className="bg-black/70 text-white"
+                                >
+                                    {type}
+                                </Chip>
+                            </div>
+                        )}
 
                         {/* 字幕标识 */}
                         {hasSubtitle && (
@@ -113,25 +117,33 @@ export default function MovieCard({
                         )}
 
                         {/* 评分显示 */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent h-20 flex items-end z-10">
-                            <div className="w-full p-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-yellow-400 text-sm">★</span>
-                                            <span className="text-white font-medium">{rating}</span>
+                        {(rating !== undefined || duration) && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent h-20 flex items-end z-10">
+                                <div className="w-full p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            {rating !== undefined && (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-yellow-400 text-sm">★</span>
+                                                    <span className="text-white font-medium">{rating.toFixed(1)}</span>
+                                                </div>
+                                            )}
+                                            {imdbRating !== undefined && imdbRating !== rating && (
+                                                <div className="flex items-center gap-1 text-xs">
+                                                    <span className="text-gray-300">IMDb</span>
+                                                    <span className="text-white">{imdbRating.toFixed(1)}</span>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex items-center gap-1 text-xs">
-                                            <span className="text-gray-300">IMDb</span>
-                                            <span className="text-white">{imdbRating}</span>
-                                        </div>
-                                    </div>
-                                    <div className="text-white text-xs">
-                                        {duration}
+                                        {duration && (
+                                            <div className="text-white text-xs">
+                                                {duration}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* 悬停时显示的操作按钮 */}
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -159,68 +171,86 @@ export default function MovieCard({
                     {/* 电影信息 */}
                     <div className="p-4">
                         {/* 中文标题 */}
-                        <h3 className="text-base font-bold mb-1 text-gray-900 dark:text-gray-100 leading-tight overflow-hidden"
-                            style={{
-                                display: '-webkit-box',
-                                WebkitLineClamp: 1,
-                                WebkitBoxOrient: 'vertical'
-                            }}>
-                            {title}
-                        </h3>
+                        {title && (
+                            <h3 className="text-base font-bold mb-1 text-gray-900 dark:text-gray-100 leading-tight overflow-hidden"
+                                style={{
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 1,
+                                    WebkitBoxOrient: 'vertical'
+                                }}>
+                                {title}
+                            </h3>
+                        )}
 
                         {/* 原标题 */}
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 overflow-hidden"
-                           style={{
-                               display: '-webkit-box',
-                               WebkitLineClamp: 1,
-                               WebkitBoxOrient: 'vertical'
-                           }}>
-                            {originalTitle}
-                        </p>
+                        {originalTitle && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 overflow-hidden"
+                               style={{
+                                   display: '-webkit-box',
+                                   WebkitLineClamp: 1,
+                                   WebkitBoxOrient: 'vertical'
+                               }}>
+                                {originalTitle}
+                            </p>
+                        )}
 
                         {/* 导演和年份 */}
-                        <div className="mb-3">
-                            <p className="text-xs text-gray-600 dark:text-gray-400">
-                                导演: <span className="text-blue-600 dark:text-blue-400">{director}</span>
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-500">
-                                {year} · {country} · {language}
-                            </p>
-                        </div>
+                        {(director || year || country || language) && (
+                            <div className="mb-3">
+                                {director && (
+                                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                                        导演: <span className="text-blue-600 dark:text-blue-400">{director}</span>
+                                    </p>
+                                )}
+                                {(year || country || language) && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                                        {[year, country, language].filter(Boolean).join(' · ')}
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                         {/* 类型标签 */}
-                        <div className="flex flex-wrap gap-1 mb-3">
-                            {genre.slice(0, 3).map((g) => (
-                                <Chip key={g} size="sm" variant="flat" color="primary" className="text-xs">
-                                    {g}
-                                </Chip>
-                            ))}
-                            {genre.length > 3 && (
-                                <Chip size="sm" variant="flat" color="default" className="text-xs">
-                                    +{genre.length - 3}
-                                </Chip>
-                            )}
-                        </div>
-
-                        {/* 统计信息 */}
-                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                            <div className="flex items-center gap-3">
-                                <span>{views} 播放</span>
-                                <span>{likes} 点赞</span>
+                        {genre.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-3">
+                                {genre.slice(0, 3).map((g) => (
+                                    <Chip key={g} size="sm" variant="flat" color="primary" className="text-xs">
+                                        {g}
+                                    </Chip>
+                                ))}
+                                {genre.length > 3 && (
+                                    <Chip size="sm" variant="flat" color="default" className="text-xs">
+                                        +{genre.length - 3}
+                                    </Chip>
+                                )}
                             </div>
-                            {isCollected && (
-                                <Chip size="sm" color="success" variant="flat" className="text-xs">
-                                    已收藏
-                                </Chip>
-                            )}
-                        </div>
+                        )}
+
+                        {/* 统计信息 - 只在有数据时显示 */}
+                        {(views || likes || isCollected) && (
+                            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                {(views || likes) && (
+                                    <div className="flex items-center gap-3">
+                                        {views && <span>{views} 播放</span>}
+                                        {likes && <span>{likes} 点赞</span>}
+                                    </div>
+                                )}
+                                {isCollected && (
+                                    <Chip size="sm" color="success" variant="flat" className="text-xs">
+                                        已收藏
+                                    </Chip>
+                                )}
+                            </div>
+                        )}
 
                         {/* 上映日期 */}
-                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                上映: {releaseDate}
-                            </p>
-                        </div>
+                        {releaseDate && (
+                            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    上映: {releaseDate}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </CardBody>
             </Card>

@@ -31,3 +31,9 @@ chrono = "0.4.42"
 gamebox = { version = "0.1.1", optional = true } # 游戏元数据爬虫库自己写的哈哈哈
 natord = "1.0.9" # 自然排序库
 tmdb = "3.0.0" # TMDB API 客户端
+regex = "1.10.1" # 正则表达式库
+urlencoding = "2.1"                                 # URL 编码
+serde = { version = "1.0", features = ["derive"] }  # 序列化/反序列化
+serde_json = "1.0"                                  # JSON 支持
+mediameta = "0.2.2"                                 # 用于提取视频元数据
+reqwest = { version = "0.12.24", features = ["json"] }

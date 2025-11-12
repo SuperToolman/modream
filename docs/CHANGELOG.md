@@ -7,7 +7,195 @@
 
 ---
 
-## [Unreleased] - 2025-11-02
+## [Unreleased] - 2025-11-12
+
+### 🎬 电影管理系统上线
+
+本次更新是一个**大型功能更新**，完整实现了电影管理系统，包括后端 API、前端页面、主题系统和配置管理。
+
+#### 核心功能
+
+- ✅ **电影实体和仓储** - 完整的电影领域模型
+  - 电影实体（`domain/src/entity/movie.rs`）- 包含标题、描述、评分、演职人员等完整字段
+  - 电影仓储接口（`domain/src/repository/movie.rs`）- 定义数据访问契约
+  - 电影仓储实现（`infrastructure/src/repository/movie.rs`）- SeaORM 实现
+
+- ✅ **电影服务** - 电影业务逻辑和应用服务
+  - 电影应用服务（`application/src/movie_service.rs`）- 业务逻辑编排
+  - 电影 DTO（`application/src/dto/movie.rs`）- 数据传输对象
+  - 支持分页查询、详情查询、删除等操作
+
+- ✅ **电影 API** - 完整的 RESTful API 端点（`interfaces/src/api/movie.rs`）
+  - `GET /api/movies` - 获取电影分页列表（支持 page_index 和 page_size）
+  - `GET /api/movies/{id}` - 获取电影详情
+  - `GET /api/movies/{id}/video` - 流式传输电影视频（支持 HTTP Range 请求）
+  - `DELETE /api/movies/{id}` - 删除电影
+  - 所有接口统一归类到 `movie` tag
+
+- ✅ **电影扫描器** - 自动扫描电影文件夹
+  - 电影扫描器（`infrastructure/src/file_scanner/movie_scaner/`）
+  - 支持多种视频格式（mp4, mkv, avi, mov, wmv, flv, webm, m4v）
+  - 自动提取视频元数据（分辨率、时长、文件大小）
+  - 智能标题提取（移除文件扩展名和特殊标记）
+
+- ✅ **TMDB 元数据刮削** - 集成 TMDB API
+  - TMDB 提供者（`infrastructure/src/file_scanner/movie_scaner/provider/tmdb_provider.rs`）
+  - 自动获取电影元数据（标题、描述、评分、海报、演职人员）
+  - 支持中文和英文搜索
+  - 自动下载海报图片
+  - 配置化 API Key 和语言设置
+
+- ✅ **电影配置系统** - 灵活的配置管理
+  - 电影配置（`shared/src/config/movie.rs`）- TMDB API 配置
+  - 支持启用/禁用 TMDB 刮削
+  - 可配置 API Key、语言、图片质量等
+
+#### 前端功能
+
+- ✅ **电影列表页** - 精美的电影库浏览页面（`web/app/(main)/content/movies/page.tsx`）
+  - 响应式网格布局（1-6 列自适应）
+  - 电影卡片组件（`web/components/cards/movie-card.tsx`）
+    - 悬停显示评分和简介
+    - 默认封面支持
+    - 画质标签（4K、1080P）
+    - 时长和年份显示
+  - 分页加载支持
+  - 加载状态和空状态处理
+  - 完整的主题支持（深色/浅色模式）
+
+- ✅ **电影详情页** - Bilibili 风格的沉浸式详情页（`web/app/(main)/content/movies/[id]/page.tsx`）
+  - **全屏横幅背景** - 电影海报作为背景，底部渐变效果
+  - **电影信息展示** - 标题、原始标题、评分、年份、时长、分辨率、类型、导演
+  - **操作按钮** - 立即播放、收藏、分享、打开文件
+  - **选项卡内容** - 剧情简介、基本信息、文件信息、导演、演员、海报
+  - **主题适配** - 完整的深色/浅色主题支持
+    - 渐变背景自适应主题
+    - 所有文字颜色根据主题调整
+    - 卡片和按钮样式主题化
+    - 评分区域背景主题化
+
+- ✅ **电影播放页** - 电影院式的播放体验（`web/app/(main)/content/movies/[id]/play/page.tsx`）
+  - **视频播放器** - 集成自定义视频播放器组件
+  - **电影信息** - 标题、评分、类型、年份、时长
+  - **选项卡内容** - 简介、演职人员
+  - **技术信息卡片** - 分辨率、文件大小、格式、时长
+  - **标签卡片** - 电影标签展示
+  - **操作按钮** - 收藏、分享
+  - **完整主题支持** - 深色/浅色模式完美适配
+
+- ✅ **电影 API 客户端** - TypeScript API 封装（`web/lib/api/movies.ts`）
+  - `getPaginated()` - 获取分页列表
+  - `getById()` - 获取详情
+  - `getVideoUrl()` - 获取视频流 URL
+  - 完整的类型定义（`web/types/movie.ts`）
+
+#### 视频流式传输
+
+- ✅ **HTTP Range 支持** - 高性能视频流传输
+  - 支持断点续传和部分内容请求
+  - 使用 `ReaderStream` 和 `Body::from_stream()` 实现流式传输
+  - 自动处理 Range 请求头
+  - 返回正确的 Content-Range 和 Content-Length 响应头
+  - 支持视频拖动和快进
+
+#### 配置管理增强
+
+- ✅ **媒体库配置表单** - 前端配置界面优化
+  - 游戏配置表单（`web/app/(main)/setting/librarysetup/components/sub_form/game-config-form.tsx`）
+  - 电影配置表单（`web/app/(main)/setting/librarysetup/components/sub_form/movie-config-form.tsx`）
+  - 漫画配置表单（`web/app/(main)/setting/librarysetup/components/sub_form/comic-config-form.tsx`）
+  - 支持 TMDB API Key 配置
+  - 支持启用/禁用元数据刮削
+
+- ✅ **配置 API 完善** - 后端配置管理
+  - 扩展配置 DTO 支持电影配置
+  - 更新 Swagger 文档包含电影配置 Schema
+
+#### 主题系统完善
+
+- ✅ **电影详情页主题适配** - 完整的深色/浅色模式支持
+  - 全屏横幅背景渐变自适应（深色：黑色渐变，浅色：白色渐变）
+  - 底部渐变效果优化（渐变到透明而非纯色）
+  - 移除顶部和左侧渐变（只保留底部渐变）
+  - 电影信息区域文字颜色主题化
+  - 评分区域背景和文字主题化
+  - 基本信息标签背景主题化
+  - 类型标签边框和文字主题化
+  - 选项卡颜色主题化
+  - 所有卡片组件主题化（剧情简介、基本信息、文件信息、导演、演员、海报）
+  - 操作按钮主题化（收藏、分享、打开文件）
+
+- ✅ **电影播放页主题适配** - 完整的深色/浅色模式支持
+  - 页面背景主题化
+  - 返回按钮主题化
+  - 标题和副标题主题化
+  - 年份和时长标签主题化
+  - 类型标签主题化
+  - 选项卡主题化
+  - 技术信息卡片主题化
+  - 标签卡片主题化
+  - 操作按钮主题化
+
+#### 技术改进
+
+- ✅ **DDD 架构完善** - 严格遵循领域驱动设计
+  - Domain 层：电影实体、仓储接口
+  - Application 层：电影应用服务、DTO
+  - Infrastructure 层：电影仓储实现、文件扫描器、TMDB 提供者
+  - Interfaces 层：电影 API 端点
+
+- ✅ **类型安全** - 完整的 TypeScript 类型定义
+  - `Movie` 接口 - 电影数据类型
+  - `MoviePaginatedResponse` 接口 - 分页响应类型
+  - API 客户端类型安全
+
+- ✅ **错误处理** - 完善的错误处理和日志记录
+  - API 错误统一处理
+  - 前端加载状态和错误状态
+  - 用户友好的错误提示
+
+- ✅ **依赖管理** - 新增依赖
+  - `reqwest` - HTTP 客户端（用于 TMDB API）
+  - `serde_json` - JSON 序列化/反序列化
+  - `tokio-util` - 异步工具（用于流式传输）
+
+#### 数据库变更
+
+- ✅ **电影表** - 完整的电影数据表结构
+  - 基本信息（标题、原始标题、描述）
+  - 元数据（评分、投票数、发行日期、类型）
+  - 演职人员（演员、导演、编剧、制片人）
+  - 媒体资源（封面、海报列表）
+  - 文件信息（路径、大小、扩展名、时长、分辨率）
+  - 关联信息（媒体库 ID）
+  - 时间戳（创建时间、更新时间）
+
+#### 文档更新
+
+- ✅ **README 更新** - 反映电影管理功能
+  - 更新"当前状态"章节，将电影管理从"待完成"移至"已完成"
+  - 更新版本号徽章
+
+#### Bug 修复
+
+- ✅ 修复电影详情页按钮悬停问题（z-index 层级冲突）
+- ✅ 修复电影详情页渐变效果（从渐变黑色改为渐变透明）
+- ✅ 修复电影详情页主题适配问题（所有文字和组件颜色）
+- ✅ 修复电影播放页主题适配问题（年份、时长标签和编剧信息）
+
+#### 统计
+
+- **新增文件**: 30+ 个
+  - 后端：7 个（实体、仓储、服务、API、扫描器、提供者、配置）
+  - 前端：10+ 个（页面、组件、API 客户端、类型定义）
+  - 资源：10+ 个（默认封面图片）
+- **修改文件**: 34 个
+- **代码行数**: +2502 行，-1276 行（净增加 +1226 行）
+- **功能模块**: 电影管理、视频流传输、TMDB 刮削、主题系统、配置管理
+
+---
+
+## [0.4.2] - 2025-11-02
 
 ### 📚 文档和配置管理改进
 
@@ -42,6 +230,12 @@
   - 添加 `DlsiteConfigResponse` 和 `SteamdbConfigResponse` DTO
   - 添加 `UpdateDlsiteConfigRequest` 和 `UpdateSteamdbConfigRequest` DTO
   - 更新 Swagger 文档包含所有新增的 Schema
+
+---
+
+## [0.4.2] - 2025-11-02
+
+### 🛠️ 开发体验优化
 
 ---
 

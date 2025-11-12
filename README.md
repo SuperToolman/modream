@@ -2,7 +2,7 @@
 
 **Languages**: [English](docs/README.en.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](docs/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0--dev-blue.svg)](docs/CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-15.3-black.svg)](https://nextjs.org/)
@@ -22,20 +22,21 @@
 
 ## ⚠️ 当前状态
 
-> **项目处于早期开发阶段**，目前已支持 **漫画** 和 **游戏** 管理功能。以下功能正在开发中：
+> **项目处于早期开发阶段**，目前已支持 **漫画**、**游戏** 和 **电影** 管理功能。以下功能正在开发中：
 
 ### 🚧 待完成功能
 
-- 🎬 **视频管理** - 视频上传、播放、字幕支持（计划中）
+- 🎬 **视频管理** - 通用视频库、字幕支持（计划中）
 - 🎞️ **动画管理** - 动画库、剧集管理（计划中）
-- 📺 **电影管理** - 电影库、推荐系统（计划中）
+- 📺 **电视节目管理** - 电视剧库、季集管理（计划中）
 - 🔄 **同步功能** - 多设备同步、云备份（计划中）
 - 🎵 **音乐管理** - 音乐库、播放列表（计划中）
 
 ### ✅ 已完成功能
 
 - 📚 **漫画管理** - 完整的漫画库管理和阅读功能、智能标题提取、章节结构支持
-- 🎮 **游戏管理** - 游戏库管理、元数据自动识别、游戏启动功能
+- 🎮 **游戏管理** - 游戏库管理、元数据自动识别（IGDB/DLsite/SteamDB）、游戏启动功能
+- 🎬 **电影管理** - 电影库管理、TMDB 元数据刮削、视频流式播放、完整主题支持
 
 ## 📋 目录
 - [项目定位](#项目定位)
@@ -73,6 +74,12 @@
   - 自动扫描和索引
   - 元数据自动识别（IGDB、DLsite、SteamDB）
   - 游戏启动和配置管理
+- **电影管理** - 电影库管理和播放功能
+  - TMDB 元数据自动刮削
+  - 视频流式传输（支持 HTTP Range 请求）
+  - Bilibili 风格的详情页
+  - 电影院式的播放页
+  - 完整的深色/浅色主题支持
 - **媒体库** - 灵活的媒体库组织方式
 - **智能扫描** - 自动扫描和索引本地文件
 - **标签系统** - 标签和分类管理

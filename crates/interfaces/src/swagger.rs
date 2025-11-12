@@ -1,7 +1,7 @@
 use utoipa::OpenApi;
 use application::dto::{
     LoginRequest, LoginResponse, RegisterRequest, UserInfo,
-    MediaLibraryInfo, MangaInfo, MangaChapterInfo, GameInfo,
+    MediaLibraryInfo, MangaInfo, MangaChapterInfo, GameInfo, MovieInfo,
     PagedResponse, CreateMediaLibraryRequest, PaginationQuery,
     FixPasswordsResponse, ImageInfo, OptimizedImageListResponse,
     OptimizedChapterImageListResponse,
@@ -10,10 +10,12 @@ use application::dto::{
 use application::dto::config::{
     GameboxConfigResponse, UpdateGameboxConfigRequest,
     IgdbConfigResponse, DlsiteConfigResponse, SteamdbConfigResponse,
-    UpdateIgdbConfigRequest, UpdateDlsiteConfigRequest, UpdateSteamdbConfigRequest
+    UpdateIgdbConfigRequest, UpdateDlsiteConfigRequest, UpdateSteamdbConfigRequest,
+    ServerConfigResponse, UpdateServerConfigRequest,
+    DatabaseConfigResponse, UpdateDatabaseConfigRequest,
 };
 use domain::entity::user::Model as UserModel;
-use crate::api::{auth, user, media_library, manga, manga_chapter, game, config};
+use crate::api::{auth, user, media_library, manga, manga_chapter, game, movie, config};
 
 /// API 文档
 #[derive(OpenApi)]
@@ -42,8 +44,17 @@ use crate::api::{auth, user, media_library, manga, manga_chapter, game, config};
         game::get_games_by_media_library,
         game::launch_game,
         game::update_default_start_path,
+        movie::get_movie,
+        movie::get_movies_paged,
+        movie::get_movies_by_media_library,
+        movie::delete_movie,
+        movie::get_movie_video,
         config::get_config,
         config::update_config,
+        config::get_server_config,
+        config::update_server_config,
+        config::get_database_config,
+        config::update_database_config,
         config::get_gamebox_config,
         config::update_gamebox_config,
     ),
@@ -62,13 +73,19 @@ use crate::api::{auth, user, media_library, manga, manga_chapter, game, config};
             OptimizedImageListResponse,
             OptimizedChapterImageListResponse,
             GameInfo,
+            MovieInfo,
             PagedResponse<MangaInfo>,
             PagedResponse<GameInfo>,
+            PagedResponse<MovieInfo>,
             PaginationQuery,
             ImageInfo,
             ScanGamesRequest,
             LaunchGameRequest,
             UpdateDefaultStartPathRequest,
+            ServerConfigResponse,
+            UpdateServerConfigRequest,
+            DatabaseConfigResponse,
+            UpdateDatabaseConfigRequest,
             GameboxConfigResponse,
             UpdateGameboxConfigRequest,
             IgdbConfigResponse,
@@ -102,6 +119,7 @@ use crate::api::{auth, user, media_library, manga, manga_chapter, game, config};
         (name = "manga", description = "漫画相关接口（包括图片）"),
         (name = "manga_chapter", description = "漫画章节相关接口（包括图片）"),
         (name = "game", description = "游戏相关接口"),
+        (name = "movie", description = "电影相关接口"),
         (name = "config", description = "配置相关接口"),
     )
 )]

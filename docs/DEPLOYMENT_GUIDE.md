@@ -25,8 +25,10 @@ Modream 支持多种灵活的启动模式，可以通过配置文件或命令行
 ```powershell
 # 安装依赖（首次运行）
 cd web
-pnpm install
+pnpm install⌘K
+
 cd ..
+⌘K
 
 # 启动开发环境
 .\start-dev.ps1

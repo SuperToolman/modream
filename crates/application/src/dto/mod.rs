@@ -8,6 +8,7 @@ pub mod media_library;
 pub mod manga;
 pub mod manga_chapter;
 pub mod game;
+pub mod movie;
 pub mod common;
 pub mod config;
 
@@ -18,5 +19,11 @@ pub use media_library::{CreateMediaLibraryRequest, MediaLibraryInfo};
 pub use manga::{CreateMangaRequest, MangaInfo, PagedResponse, ImageInfo, OptimizedImageListResponse, ThumbnailQuery};
 pub use manga_chapter::{MangaChapterInfo, OptimizedChapterImageListResponse};
 pub use game::{CreateGameRequest, GameInfo, ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPathRequest};
+pub use movie::MovieInfo;
 pub use common::PaginationQuery;
-pub use config::{GameboxConfigResponse, UpdateGameboxConfigRequest};
+pub use config::{
+    GameboxConfigResponse, UpdateGameboxConfigRequest,
+    ServerConfigResponse, UpdateServerConfigRequest,
+    DatabaseConfigResponse, UpdateDatabaseConfigRequest,
+    MovieConfigResponse, UpdateMovieConfigRequest,
+};

@@ -24,6 +24,7 @@ import { media_librariesApi } from './media_libraries';
 import { mangasApi } from './mangas';
 import { mangaChaptersApi } from './manga-chapters';
 import { gamesApi } from './games';
+import { moviesApi } from './movies';
 
 // 导出各个模块
 export { authApi } from './auth';
@@ -35,6 +36,7 @@ export { media_librariesApi } from './media_libraries';
 export { mangasApi } from './mangas';
 export { mangaChaptersApi } from './manga-chapters';
 export { gamesApi } from './games';
+export { moviesApi } from './movies';
 
 // 创建统一的 API 对象
 export const api = {
@@ -47,5 +49,6 @@ export const api = {
   mangas: mangasApi,
   mangaChapters: mangaChaptersApi,
   games: gamesApi,
+  movies: moviesApi,
 };
 

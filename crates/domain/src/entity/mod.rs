@@ -7,4 +7,5 @@ pub mod game;
 pub mod manga;
 pub mod manga_chapter;
 pub mod media_library;
+pub mod movie;
 pub mod user;

@@ -6,6 +6,7 @@ use std::sync::LazyLock;
 pub use server::{ServerConfig, ServerMode}; // 导出服务器配置结构体和启动模式枚举
 pub use database::DatabaseConfig;
 pub use gamebox::GameboxConfig;
+pub use movie::MovieConfig;
 // 导出数据库配置机构提
 
 
@@ -13,6 +14,7 @@ pub use gamebox::GameboxConfig;
 mod database;
 pub mod server;
 pub mod gamebox;
+pub mod movie;
 // 服务器配置模块，包含ServerConfig定义
 
 static CONFIG: LazyLock<AppConfig> =
@@ -25,6 +27,8 @@ pub struct AppConfig {
     database: DatabaseConfig,
     #[serde(default)]
     gamebox: GameboxConfig,
+    #[serde(default)]
+    movie: MovieConfig,
 }
 
 impl AppConfig {
@@ -59,6 +63,9 @@ impl AppConfig {
     }
     pub fn gamebox(&self) -> &GameboxConfig {
         &self.gamebox
+    }
+    pub fn movie(&self) -> &MovieConfig {
+        &self.movie
     }
 }
 

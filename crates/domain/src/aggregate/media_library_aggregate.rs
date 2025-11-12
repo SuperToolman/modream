@@ -2,18 +2,19 @@ use crate::entity::game;
 use crate::entity::manga;
 use crate::entity::manga_chapter;
 use crate::entity::media_library;
+use crate::entity::movie;
 use crate::service::MangaDomainService;
 
 /// MediaLibrary 聚合根
 ///
 /// # DDD 设计
-/// - ✅ 聚合根：MediaLibrary 是聚合根，管理其下的所有媒体实体（Manga、Game 等）
+/// - ✅ 聚合根：MediaLibrary 是聚合根，管理其下的所有媒体实体（Manga、Game、Movie 等）
 /// - ✅ 一致性边界：所有对媒体实体的创建和更新都通过聚合根进行
 /// - ✅ 业务规则：聚合根保证业务规则的一致性
 ///
 /// # 职责
 /// - 管理 MediaLibrary 实体的生命周期
-/// - 管理 Manga、Game 等媒体实体的创建和更新
+/// - 管理 Manga、Game、Movie 等媒体实体的创建和更新
 /// - 保证 MediaLibrary 和媒体实体之间的一致性
 /// - 封装业务规则
 pub struct MediaLibraryAggregate {
@@ -25,6 +26,8 @@ pub struct MediaLibraryAggregate {
     pub manga_chapters: Vec<manga_chapter::Model>,
     /// 游戏实体列表（聚合内的实体）
     pub games: Vec<game::Model>,
+    /// 电影实体列表（聚合内的实体）
+    pub movies: Vec<movie::Model>,
 }
 
 impl MediaLibraryAggregate {
@@ -63,6 +66,7 @@ impl MediaLibraryAggregate {
             mangas: Vec::new(),
             manga_chapters: Vec::new(),
             games: Vec::new(),
+            movies: Vec::new(),
         })
     }
 
@@ -73,6 +77,7 @@ impl MediaLibraryAggregate {
     /// - `mangas`: 漫画实体列表
     /// - `manga_chapters`: 漫画章节列表
     /// - `games`: 游戏实体列表
+    /// - `movies`: 电影实体列表
     ///
     /// # 返回
     /// - `Self` - 创建的聚合根
@@ -81,12 +86,14 @@ impl MediaLibraryAggregate {
         mangas: Vec<manga::Model>,
         manga_chapters: Vec<manga_chapter::Model>,
         games: Vec<game::Model>,
+        movies: Vec<movie::Model>,
     ) -> Self {
         Self {
             media_library,
             mangas,
             manga_chapters,
             games,
+            movies,
         }
     }
 
@@ -477,8 +484,115 @@ impl MediaLibraryAggregate {
         self.games.len()
     }
 
-    /// 获取总媒体项数量（漫画 + 游戏）
+    /// 添加电影到聚合根
+    ///
+    /// # 参数
+    /// - `title`: 电影标题
+    /// - `path`: 视频文件路径
+    ///
+    /// # 返回
+    /// - `anyhow::Result<&movie::Model>` - 添加的电影实体引用
+    ///
+    /// # 业务规则
+    /// - 电影必须属于当前媒体库
+    /// - 电影路径不能重复
+    /// - 自动更新媒体库的项目数量
+    pub fn add_movie(
+        &mut self,
+        title: String,
+        path: String,
+    ) -> anyhow::Result<&movie::Model> {
+        // 检查路径是否重复
+        if self.movies.iter().any(|m| m.path == path) {
+            return Err(anyhow::anyhow!("Movie with path '{}' already exists", path));
+        }
+
+        // 创建电影实体
+        let movie = movie::Model::new(title, path, self.media_library.id);
+
+        // 添加到聚合根
+        self.movies.push(movie);
+
+        // 更新媒体库的项目数量
+        self.media_library.increment_item_count(1)?;
+
+        // 返回最后添加的电影引用
+        Ok(self.movies.last().unwrap())
+    }
+
+    /// 批量添加电影到聚合根
+    ///
+    /// # 参数
+    /// - `movies`: 电影实体列表
+    ///
+    /// # 返回
+    /// - `anyhow::Result<usize>` - 成功添加的电影数量
+    ///
+    /// # 业务规则
+    /// - 所有电影必须属于当前媒体库
+    /// - 电影路径不能重复
+    /// - 自动更新媒体库的项目数量
+    pub fn add_movies_batch(
+        &mut self,
+        mut movies: Vec<movie::Model>,
+    ) -> anyhow::Result<usize> {
+        let mut added_count = 0;
+
+        for movie in &mut movies {
+            let path = movie.path.clone();
+
+            // 检查路径是否重复
+            if self.movies.iter().any(|m| m.path == path) {
+                tracing::warn!("Skipping duplicate movie path: {}", path);
+                continue;
+            }
+
+            // 确保 media_library_id 正确
+            movie.media_library_id = self.media_library.id;
+            self.movies.push(movie.clone());
+            added_count += 1;
+        }
+
+        // 更新媒体库的项目数量
+        if added_count > 0 {
+            self.media_library.increment_item_count(added_count as i32)?;
+        }
+
+        Ok(added_count)
+    }
+
+    /// 移除电影从聚合根
+    ///
+    /// # 参数
+    /// - `movie_id`: 电影 ID
+    ///
+    /// # 返回
+    /// - `anyhow::Result<movie::Model>` - 移除的电影实体
+    ///
+    /// # 业务规则
+    /// - 电影必须属于当前媒体库
+    /// - 自动更新媒体库的项目数量
+    pub fn remove_movie(&mut self, movie_id: i32) -> anyhow::Result<movie::Model> {
+        // 查找电影索引
+        let index = self.movies.iter().position(|m| m.id == movie_id)
+            .ok_or_else(|| anyhow::anyhow!("Movie with id {} not found", movie_id))?;
+
+        // 移除电影
+        let movie = self.movies.remove(index);
+
+        // 更新媒体库的项目数量
+        self.media_library.decrement_item_count(1)?;
+
+        Ok(movie)
+    }
+
+    /// 获取电影数量
+    pub fn movie_count(&self) -> usize {
+        self.movies.len()
+    }
+
+    /// 获取总媒体项数量（漫画 + 游戏 + 电影）
     pub fn total_media_count(&self) -> usize {
-        self.mangas.len() + self.games.len()
+        self.mangas.len() + self.games.len() + self.movies.len()
     }
 }

@@ -32,6 +32,25 @@ interface LoadingLibraryCarProps {
   isError?: boolean;
 }
 
+// 根据媒体库类型获取默认封面
+const getDefaultCover = (type: LibraryType): string => {
+  const coverMap: Record<LibraryType, string> = {
+    "电影": "/assets/image/default_cover_电影.png",
+    "视频": "/assets/image/default_cover_视频.png",
+    "音乐": "/assets/image/default_cover_音乐.png",
+    "电视节目": "/assets/image/default_cover_电视节目.png",
+    "有声读物": "/assets/image/default_cover_有声读物.png",
+    "书籍": "/assets/image/default_cover_书籍.png",
+    "游戏": "/assets/image/game_cover_defualt.png",
+    "漫画": "/assets/image/default_cover_漫画.png",
+    "音乐视频": "/assets/image/default_cover_音乐视频.png",
+    "照片": "/assets/image/default_cover_照片.png",
+    "混合内容": "/assets/image/default_cover_漫画内容.png",
+  };
+
+  return coverMap[type] || "/assets/image/default_cover_电影.png";
+};
+
 /**
  * 创建中的媒体库卡片组件
  * 基于 LibraryCar 组件，保持相同的样式和布局
@@ -47,6 +66,9 @@ export const LoadingLibraryCar = ({
   const { theme } = useTheme();
   const isSSR = useIsSSR();
   const isDark = theme === 'dark' && !isSSR;
+
+  // 获取默认封面
+  const displayCover = getDefaultCover(type);
 
   // 获取类型对应的颜色
   const getTypeColor = (type: LibraryType) => {
@@ -104,30 +126,42 @@ export const LoadingLibraryCar = ({
       radius="lg"
     >
       <CardBody className="p-0 relative">
-        {/* 封面图片容器 - 显示加载动画 */}
-        <div className={clsx(
-          "relative aspect-video overflow-hidden rounded-t-lg flex items-center justify-center",
-          isSuccess ? "bg-green-100 dark:bg-green-900/20" :
-          isError ? "bg-red-100 dark:bg-red-900/20" :
-          "bg-blue-100 dark:bg-blue-900/20"
-        )}>
-          {/* 加载动画 / 成功 / 失败图标 */}
-          {!isSuccess && !isError && (
-            <div className="flex flex-col items-center gap-3">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-500"></div>
-              <p className="text-blue-600 dark:text-blue-400 font-medium text-sm">创建中...</p>
+        {/* 封面图片容器 */}
+        <div className="relative aspect-video overflow-hidden rounded-t-lg">
+          {/* 背景封面图片 */}
+          <img
+            src={displayCover}
+            alt={title}
+            className="object-cover w-full h-full"
+          />
+
+          {/* 加载/成功/失败遮罩层 */}
+          {(!isSuccess || isError) && (
+            <div className={clsx(
+              "absolute inset-0 flex items-center justify-center",
+              isError ? "bg-red-500/80" : "bg-blue-500/80"
+            )}>
+              {/* 加载动画 */}
+              {!isSuccess && !isError && (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-white"></div>
+                  <p className="text-white font-medium text-sm">创建中...</p>
+                </div>
+              )}
+              {/* 失败图标 */}
+              {isError && (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="text-5xl">❌</div>
+                  <p className="text-white font-medium text-sm">创建失败</p>
+                </div>
+              )}
             </div>
           )}
-          {isSuccess && (
-            <div className="flex flex-col items-center gap-3">
-              <div className="text-5xl">✅</div>
-              <p className="text-green-600 dark:text-green-400 font-medium text-sm">创建成功</p>
-            </div>
-          )}
-          {isError && (
-            <div className="flex flex-col items-center gap-3">
-              <div className="text-5xl">❌</div>
-              <p className="text-red-600 dark:text-red-400 font-medium text-sm">创建失败</p>
+
+          {/* 成功标记 - 右下角 */}
+          {isSuccess && !isError && (
+            <div className="absolute bottom-3 right-3 bg-green-500 rounded-full p-2">
+              <div className="text-2xl leading-none">✅</div>
             </div>
           )}
 

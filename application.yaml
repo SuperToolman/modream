@@ -63,4 +63,3 @@ movie:
   tmdb:
     api_key: "your_tmdb_api_key"
     enabled: true
-
