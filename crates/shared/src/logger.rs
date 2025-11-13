@@ -32,6 +32,10 @@ use tracing_subscriber::util::SubscriberInitExt;
 /// }
 /// ```
 pub fn init() {
+    // 检测是否在真实的终端环境中运行
+    // 如果 stdout 不是 TTY（比如被重定向到文件），则禁用 ANSI 颜色代码
+    let is_terminal = atty::is(atty::Stream::Stdout);
+
     // 创建并配置日志订阅者注册表
     tracing_subscriber::registry()
         // 配置日志级别过滤器
@@ -49,11 +53,10 @@ pub fn init() {
                 .with_line_number(true) // 启用代码行号显示 - 与文件路径结合可精确定位代码位置
                 .with_thread_ids(true) // 启用线程ID显示 - 便于调试多线程应用程序
                 .with_thread_names(true) // 启用线程名称显示 - 如果线程有命名，会显示线程名
-                .with_target(false), // 禁用目标显示 - 不显示产生日志的模块路径，使输出更简洁
-                                     // 注意：这里还可以添加其他配置，如：
-                                     // .with_ansi(true)       // 启用彩色输出（默认启用）
-                                     // .with_writer(std::io::stderr)  // 指定输出目标
-                                     // .json()                // 使用JSON格式而不是文本格式
+                .with_target(false) // 禁用目标显示 - 不显示产生日志的模块路径，使输出更简洁
+                .with_ansi(is_terminal), // 根据是否在终端环境中运行来决定是否启用 ANSI 颜色代码
+                                         // 终端环境：启用颜色（美观）
+                                         // 文件重定向：禁用颜色（避免乱码）
         )
         // 初始化并设置此配置为全局默认订阅者
         // 此后，所有通过 tracing 宏记录的日志都会使用这个配置

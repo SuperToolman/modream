@@ -5,6 +5,59 @@
 import { http } from '@/lib/http';
 import type { Manga, MangaPaginationResponse, MangaPaginationRequest, MangaImage, OptimizedImageListResponse } from '@/types/manga';
 
+// 漫画数据缓存
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const mangaDataCache = new Map<string, CacheEntry<any>>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 分钟缓存
+
+/**
+ * 生成缓存键
+ */
+function getCacheKey(endpoint: string, params?: any): string {
+  return `${endpoint}:${JSON.stringify(params || {})}`;
+}
+
+/**
+ * 从缓存获取数据
+ */
+function getFromCache<T>(key: string): T | null {
+  const entry = mangaDataCache.get(key);
+  if (!entry) return null;
+
+  const now = Date.now();
+  if (now - entry.timestamp > CACHE_DURATION) {
+    mangaDataCache.delete(key);
+    console.log(`🗑️ 缓存已过期: ${key}`);
+    return null;
+  }
+
+  console.log(`✅ 从缓存加载数据: ${key}`);
+  return entry.data as T;
+}
+
+/**
+ * 保存数据到缓存
+ */
+function saveToCache<T>(key: string, data: T): void {
+  mangaDataCache.set(key, {
+    data,
+    timestamp: Date.now()
+  });
+  console.log(`💾 数据已缓存: ${key}`);
+}
+
+/**
+ * 清除所有漫画数据缓存
+ */
+export function clearMangasCache(): void {
+  mangaDataCache.clear();
+  console.log('🗑️ 漫画数据缓存已清空');
+}
+
 export const mangasApi = {
   /**
    * 获取漫画分页列表
@@ -14,9 +67,22 @@ export const mangasApi = {
   async getPaginated(params: MangaPaginationRequest = {}): Promise<MangaPaginationResponse> {
     const pageIndex = params.page_index || 1;
     const pageSize = params.page_size || 10;
-    return await http.get<MangaPaginationResponse>(
+
+    // 检查缓存
+    const cacheKey = getCacheKey('/manga', { pageIndex, pageSize });
+    const cached = getFromCache<MangaPaginationResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // 请求数据
+    const data = await http.get<MangaPaginationResponse>(
       `/manga?page_index=${pageIndex}&page_size=${pageSize}`
     );
+
+    // 存入缓存
+    saveToCache(cacheKey, data);
+    return data;
   },
 
   /**

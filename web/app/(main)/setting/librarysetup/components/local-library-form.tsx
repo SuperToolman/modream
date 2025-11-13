@@ -14,6 +14,7 @@ import { FolderPickerModal } from "./folder-picker-modal";
 import { MovieConfigForm } from "@/app/(main)/setting/librarysetup/components/sub_form/movie-config-form";
 import { GameConfigForm } from "@/app/(main)/setting/librarysetup/components/sub_form/game-config-form";
 import { ComicConfigForm } from "@/app/(main)/setting/librarysetup/components/sub_form/comic-config-form";
+import { PhotoConfigForm } from "@/app/(main)/setting/librarysetup/components/sub_form/photo-config-form";
 
 interface LocalLibraryFormProps {
     isOpen: boolean;
@@ -32,6 +33,12 @@ export interface LocalLibraryData {
     movieMetadataDownloaders?: string; // 影片元数据下载器（逗号分隔字符串，如 "theMovieDb,theTVDB"）
     movieLanguage?: string; // 电影元数据语言（如 "zh-CN", "en-US"）
     movieMinFileSize?: number; // 电影最小文件大小（MB）
+    photoThumbnailMaxWidth?: number; // 照片缩略图最大宽度（像素）
+    photoThumbnailMaxHeight?: number; // 照片缩略图最大高度（像素）
+    photoThumbnailResizeFilter?: 'triangle' | 'catmullrom' | 'lanczos3'; // 缩略图缩放算法
+    photoExtractExif?: boolean; // 是否提取 EXIF 信息
+    photoCalculateHash?: boolean; // 是否计算文件哈希
+    photoSupportedFormats?: string; // 支持的图片格式（逗号分隔字符串）
 }
 
 const LIBRARY_TYPES = [
@@ -66,6 +73,12 @@ export const LocalLibraryForm = ({
     const [internalMovieDownloaders, setInternalMovieDownloaders] = useState<string[]>(["theMovieDb", "theTVDB"]);
     const [internalMovieLanguage, setInternalMovieLanguage] = useState<string>("zh-CN");
     const [internalMovieMinFileSize, setInternalMovieMinFileSize] = useState<number>(300);
+    const [internalPhotoThumbnailWidth, setInternalPhotoThumbnailWidth] = useState<number>(300);
+    const [internalPhotoThumbnailHeight, setInternalPhotoThumbnailHeight] = useState<number>(300);
+    const [internalPhotoResizeFilter, setInternalPhotoResizeFilter] = useState<'triangle' | 'catmullrom' | 'lanczos3'>('triangle');
+    const [internalPhotoExtractExif, setInternalPhotoExtractExif] = useState<boolean>(true);
+    const [internalPhotoCalculateHash, setInternalPhotoCalculateHash] = useState<boolean>(true);
+    const [internalPhotoFormats, setInternalPhotoFormats] = useState<string[]>(["jpg", "jpeg", "png", "gif", "bmp", "webp"]);
 
     const [formData, setFormData] = useState<LocalLibraryData>({
         name: "",
@@ -126,6 +139,14 @@ export const LocalLibraryForm = ({
                     : undefined,
                 movieLanguage: internalMovieLanguage,
                 movieMinFileSize: internalMovieMinFileSize,
+                photoThumbnailMaxWidth: internalPhotoThumbnailWidth,
+                photoThumbnailMaxHeight: internalPhotoThumbnailHeight,
+                photoThumbnailResizeFilter: internalPhotoResizeFilter,
+                photoExtractExif: internalPhotoExtractExif,
+                photoCalculateHash: internalPhotoCalculateHash,
+                photoSupportedFormats: internalPhotoFormats.length > 0
+                    ? internalPhotoFormats.join(',')
+                    : undefined,
             };
 
             onSubmit(submitData);
@@ -135,6 +156,11 @@ export const LocalLibraryForm = ({
             setInternalMovieDownloaders(["theMovieDb", "theTVDB"]);
             setInternalMovieLanguage("zh-CN");
             setInternalMovieMinFileSize(300);
+            setInternalPhotoThumbnailWidth(300);
+            setInternalPhotoThumbnailHeight(300);
+            setInternalPhotoExtractExif(true);
+            setInternalPhotoCalculateHash(true);
+            setInternalPhotoFormats(["jpg", "jpeg", "png", "gif", "bmp", "webp"]);
             onClose();
         }
     };
@@ -242,8 +268,31 @@ export const LocalLibraryForm = ({
                                     </>
                                 )}
 
+                                {/* 照片配置 */}
+                                {formData.type === "照片" && (
+                                    <>
+                                        <h3 className={clsx("text-sm font-semibold mb-3", themeStyles.text)}>
+                                            📷 照片库配置
+                                        </h3>
+                                        <PhotoConfigForm
+                                            thumbnailMaxWidth={internalPhotoThumbnailWidth}
+                                            onThumbnailMaxWidthChange={setInternalPhotoThumbnailWidth}
+                                            thumbnailMaxHeight={internalPhotoThumbnailHeight}
+                                            onThumbnailMaxHeightChange={setInternalPhotoThumbnailHeight}
+                                            thumbnailResizeFilter={internalPhotoResizeFilter}
+                                            onThumbnailResizeFilterChange={setInternalPhotoResizeFilter}
+                                            extractExif={internalPhotoExtractExif}
+                                            onExtractExifChange={setInternalPhotoExtractExif}
+                                            calculateHash={internalPhotoCalculateHash}
+                                            onCalculateHashChange={setInternalPhotoCalculateHash}
+                                            supportedFormats={internalPhotoFormats}
+                                            onSupportedFormatsChange={setInternalPhotoFormats}
+                                        />
+                                    </>
+                                )}
+
                                 {/* 其他媒体类型 */}
-                                {!["电影", "游戏", "漫画"].includes(formData.type) && (
+                                {!["电影", "游戏", "漫画", "照片"].includes(formData.type) && (
                                     <p className={clsx("text-sm text-center", themeStyles.textSecondary)}>
                                         此媒体类型暂无额外配置选项
                                     </p>

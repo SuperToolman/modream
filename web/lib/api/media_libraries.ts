@@ -12,6 +12,7 @@ type MediaLibraryListResponse = DTOs.MediaLibraryListResponse;
 type CreateLocalLibraryRequest = DTOs.CreateLocalLibraryRequest;
 type CreateWebDAVLibraryRequest = DTOs.CreateWebDAVLibraryRequest;
 type UpdateMediaLibraryRequest = DTOs.UpdateMediaLibraryRequest;
+type ScanTaskInfo = DTOs.ScanTaskInfo;
 
 /**
  * 媒体库 API 服务
@@ -78,6 +79,23 @@ export const media_librariesApi = {
   async scan(id: string): Promise<{ scannedCount: number; addedCount: number }> {
     return await http.post(`/media_libraries/${id}/scan`, {});
   },
+
+  /**
+   * 获取扫描任务状态
+   * @param id 媒体库 ID
+   * @returns 扫描任务信息
+   */
+  async getScanStatus(id: string | number): Promise<ScanTaskInfo> {
+    return await http.get<ScanTaskInfo>(`/media_libraries/${id}/scan-status`);
+  },
+
+  /**
+   * 取消扫描任务
+   * @param id 媒体库 ID
+   */
+  async cancelScan(id: string | number): Promise<void> {
+    await http.post(`/media_libraries/${id}/scan-cancel`, {});
+  },
 };
 
 // 导出类型
@@ -87,4 +105,5 @@ export type {
   CreateLocalLibraryRequest,
   CreateWebDAVLibraryRequest,
   UpdateMediaLibraryRequest,
+  ScanTaskInfo,
 };

@@ -346,18 +346,18 @@ export default function MangaDetail({ params }: MangaDetailProps) {
                                                             </div>
 
                                                             {/* 章节信息 */}
-                                                            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mt-auto">
-                                                                <div className="flex items-center gap-1">
-                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-auto flex-wrap">
+                                                                <div className="flex items-center gap-1 flex-shrink-0">
+                                                                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                                     </svg>
-                                                                    <span>{chapter.page_count} 页</span>
+                                                                    <span className="whitespace-nowrap">{chapter.page_count} 页</span>
                                                                 </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <div className="flex items-center gap-1 flex-shrink-0">
+                                                                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                                                                     </svg>
-                                                                    <span>{formatFileSize(chapter.byte_size)}</span>
+                                                                    <span className="whitespace-nowrap">{formatFileSize(chapter.byte_size)}</span>
                                                                 </div>
                                                             </div>
                                                         </div>

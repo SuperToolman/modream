@@ -7,7 +7,149 @@
 
 ---
 
-## [Unreleased] - 2025-11-12
+## [Unreleased] - 2025-11-13
+
+### 📷 照片管理系统上线 + 代码质量优化
+
+本次更新包含两个主要部分：
+1. **照片管理系统** - 完整实现照片库管理、EXIF 信息展示、图片查看器等功能
+2. **代码质量优化** - 大规模重构照片相关组件，提升代码可维护性和性能
+
+#### 核心功能
+
+- ✅ **照片 Swagger 文档** - 完善 API 文档
+  - 在 Swagger 中添加 `photo` tag
+  - 所有照片相关接口统一归类到 `photo` tag
+  - 修复 Swagger 文档中缺失照片接口的问题
+
+- ✅ **照片前端实现** - 完整的照片库管理界面
+  - 照片列表页（`web/app/(main)/content/photos/page.tsx`）
+    - 响应式网格布局
+    - 按日期/名称/大小/收藏分组显示
+    - 无限滚动加载
+    - 悬停显示照片信息
+    - 智能缓存（30 天 TTL）
+  - 照片卡片组件（`web/components/cards/photo-card.tsx`）
+    - 悬停显示文件名、大小、分辨率
+    - 收藏状态显示
+    - 懒加载支持
+  - 照片详情模态框（`web/app/(main)/content/photos/components/photo-detail-modal.tsx`）
+    - 全屏图片查看
+    - 缩放、旋转、平移功能
+    - 缩略图导航（MiniMap）
+    - 完整的 EXIF 信息展示
+    - 收藏、删除、添加到相册等操作
+    - 深色/浅色主题支持
+
+- ✅ **照片 API 客户端** - TypeScript API 封装
+  - `web/lib/api/photos.ts` - 照片 API 客户端
+  - `getPaginated()` - 获取分页列表
+  - `getById()` - 获取详情
+  - `toggleFavorite()` - 切换收藏状态
+  - 完整的类型定义（`web/types/photo.ts`）
+
+- ✅ **照片类型定义** - TypeScript 类型系统
+  - `Photo` - 照片基本信息
+  - `PhotoDetail` - 照片详情（包含 EXIF）
+  - `PhotoExif` - EXIF 元数据
+  - `PhotoViewMode` - 视图模式（网格/瀑布流/列表）
+  - `PhotoSortBy` - 排序方式（日期/名称/大小/收藏）
+
+#### 代码质量优化（阶段 1 + 阶段 2）
+
+- ✅ **组件提取和重构** - 大幅提升代码可维护性
+  - **阶段 1 优化**：
+    - 提取 SVG 图标组件（`web/components/icons/photo-icons.tsx`，108 行）
+      - 8 个图标组件：ZoomInIcon, ZoomOutIcon, RotateIcon, PanelCollapseIcon, PanelExpandIcon, DeleteIcon, MoreIcon, CloseIcon
+    - 提取工具函数（`web/lib/utils/format.ts`，82 行）
+      - formatDate() - 日期格式化（YYYY/MM/DD HH:mm）
+      - formatFileSize() - 文件大小格式化（B, KB, MB, GB, TB, PB）
+      - formatNumber() - 数字格式化（千分位分隔符）
+      - formatDuration() - 时长格式化（HH:mm:ss）
+    - 添加性能优化
+      - 使用 useMemo 缓存主题样式对象
+      - 使用 useCallback 缓存事件处理函数（5 个）
+    - 主组件从 565 行减少到 486 行（-14%）
+
+  - **阶段 2 优化**：
+    - 提取操作栏组件（`web/app/(main)/content/photos/components/photo-toolbar.tsx`，152 行）
+      - 包含 8 个操作按钮（放大、缩小、旋转、切换面板、收藏、删除、更多）
+      - 使用 memo 包装，避免不必要的重渲染
+      - 清晰的 Props 接口定义
+    - 提取 EXIF 面板组件（`web/app/(main)/content/photos/components/photo-exif-panel.tsx`，126 行）
+      - 显示 6 类 EXIF 信息（相机、拍摄参数、镜头、其他设置、拍摄时间、GPS）
+      - 使用 memo 包装，优化性能
+      - 自动处理无 EXIF 数据的情况
+    - 主组件从 486 行减少到 310 行（-36%）
+
+  - **总体成果**：
+    - 主组件从 565 行减少到 310 行（-45%）
+    - 提取了 4 个可复用模块（图标、工具、操作栏、EXIF 面板）
+    - 代码可读性、可维护性、可复用性、可测试性全面提升
+
+- ✅ **组件目录重组** - 更清晰的文件结构
+  - 将照片专用组件移动到 `web/app/(main)/content/photos/components/`
+    - photo-detail-modal.tsx
+    - photo-toolbar.tsx
+    - photo-exif-panel.tsx
+  - 更新所有导入路径（使用相对路径）
+  - 符合 Next.js App Router 最佳实践
+  - 照片功能的所有代码集中在同一目录
+
+#### 技术改进
+
+- ✅ **React 性能优化**
+  - 使用 `memo` 包装组件，减少不必要的重渲染
+  - 使用 `useMemo` 缓存计算结果
+  - 使用 `useCallback` 缓存函数引用
+  - 优化组件层级，减少嵌套
+
+- ✅ **代码组织优化**
+  - 单一职责原则 - 每个组件只负责一个功能
+  - 关注点分离 - UI、逻辑、数据分离
+  - 可复用性 - 提取通用组件和工具函数
+  - 可测试性 - 清晰的接口，易于单元测试
+
+- ✅ **类型安全增强**
+  - 完整的 TypeScript 类型定义
+  - Props 接口清晰
+  - 类型推导优化
+
+#### Bug 修复
+
+- ✅ 修复照片列表页无限滚动问题
+  - 修复滚动容器检测（从 window 改为 overflow-y-auto div）
+  - 修复重复加载问题
+  - 优化加载逻辑
+- ✅ 修复照片排序问题
+  - 后端仓储查询改为按 CreateTime 降序排序
+  - 确保最新照片优先显示
+- ✅ 修复 Hydration 错误
+  - 移除服务端/客户端不一致的内容
+  - 优化主题检测逻辑
+
+#### 统计
+
+- **新增文件**: 8 个
+  - 前端组件：5 个（photo-card, photo-detail-modal, photo-toolbar, photo-exif-panel, photo-icons）
+  - 工具函数：1 个（format.ts）
+  - API 客户端：1 个（photos.ts）
+  - 类型定义：1 个（photo.ts）
+- **修改文件**: 5 个
+  - Swagger 文档：1 个
+  - 照片列表页：1 个
+  - 后端仓储：1 个
+  - API 客户端索引：1 个
+  - 缓存配置：3 个（photos, movies, mangas）
+- **代码行数**:
+  - 主组件优化：-255 行（565 → 310）
+  - 新增可复用模块：+468 行
+  - 净增加：+213 行
+- **功能模块**: 照片管理、图片查看器、EXIF 展示、代码重构、性能优化
+
+---
+
+## [0.5.0] - 2025-11-12
 
 ### 🎬 电影管理系统上线
 

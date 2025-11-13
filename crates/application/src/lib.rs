@@ -5,5 +5,7 @@ pub mod manga_service;
 pub mod manga_chapter_service;
 pub mod game_service;
 pub mod movie_service;
+pub mod photo_service;
 pub mod image_service;
+pub mod scan_task;
 pub mod dto;

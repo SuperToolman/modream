@@ -12,7 +12,7 @@ shared = {path = "../shared"}
 domain = {path = "../domain"}
 
 tokio = { version = "1.48.0" , features = ["full"]} # 异步运行时
-anyhow = "1.0.100" # 便捷错误处理的库
+anyhow = "1.0.100"              # 便捷错误处理的库
 async-trait = "0.1.81" # 异步 trait 支持
 ignore = "0.4.23" # 高效目录遍历
 sea-orm = { version = "2.0.0-rc.13", features = [
@@ -37,3 +37,6 @@ serde = { version = "1.0", features = ["derive"] }  # 序列化/反序列化
 serde_json = "1.0"                                  # JSON 支持
 mediameta = "0.2.2"                                 # 用于提取视频元数据
 reqwest = { version = "0.12.24", features = ["json"] }
+kamadak-exif = "0.6"                                # EXIF 元数据提取（在代码中使用 exif）
+image = "0.25"                                      # 图片处理库
+sha2 = "0.10"                                       # SHA-256 哈希计算

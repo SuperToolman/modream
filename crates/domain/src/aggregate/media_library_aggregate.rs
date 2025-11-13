@@ -3,6 +3,8 @@ use crate::entity::manga;
 use crate::entity::manga_chapter;
 use crate::entity::media_library;
 use crate::entity::movie;
+use crate::entity::photo;
+use crate::entity::photo_exif;
 use crate::service::MangaDomainService;
 
 /// MediaLibrary 聚合根
@@ -14,7 +16,7 @@ use crate::service::MangaDomainService;
 ///
 /// # 职责
 /// - 管理 MediaLibrary 实体的生命周期
-/// - 管理 Manga、Game、Movie 等媒体实体的创建和更新
+/// - 管理 Manga、Game、Movie、Photo 等媒体实体的创建和更新
 /// - 保证 MediaLibrary 和媒体实体之间的一致性
 /// - 封装业务规则
 pub struct MediaLibraryAggregate {
@@ -28,6 +30,10 @@ pub struct MediaLibraryAggregate {
     pub games: Vec<game::Model>,
     /// 电影实体列表（聚合内的实体）
     pub movies: Vec<movie::Model>,
+    /// 照片实体列表（聚合内的实体）
+    pub photos: Vec<photo::Model>,
+    /// 照片 EXIF 信息列表（聚合内的实体）
+    pub photo_exifs: Vec<photo_exif::Model>,
 }
 
 impl MediaLibraryAggregate {
@@ -67,6 +73,8 @@ impl MediaLibraryAggregate {
             manga_chapters: Vec::new(),
             games: Vec::new(),
             movies: Vec::new(),
+            photos: Vec::new(),
+            photo_exifs: Vec::new(),
         })
     }
 
@@ -78,6 +86,8 @@ impl MediaLibraryAggregate {
     /// - `manga_chapters`: 漫画章节列表
     /// - `games`: 游戏实体列表
     /// - `movies`: 电影实体列表
+    /// - `photos`: 照片实体列表
+    /// - `photo_exifs`: 照片 EXIF 信息列表
     ///
     /// # 返回
     /// - `Self` - 创建的聚合根
@@ -87,6 +97,8 @@ impl MediaLibraryAggregate {
         manga_chapters: Vec<manga_chapter::Model>,
         games: Vec<game::Model>,
         movies: Vec<movie::Model>,
+        photos: Vec<photo::Model>,
+        photo_exifs: Vec<photo_exif::Model>,
     ) -> Self {
         Self {
             media_library,
@@ -94,6 +106,8 @@ impl MediaLibraryAggregate {
             manga_chapters,
             games,
             movies,
+            photos,
+            photo_exifs,
         }
     }
 
@@ -591,8 +605,93 @@ impl MediaLibraryAggregate {
         self.movies.len()
     }
 
-    /// 获取总媒体项数量（漫画 + 游戏 + 电影）
+    /// 获取总媒体项数量（漫画 + 游戏 + 电影 + 照片）
     pub fn total_media_count(&self) -> usize {
-        self.mangas.len() + self.games.len() + self.movies.len()
+        self.mangas.len() + self.games.len() + self.movies.len() + self.photos.len()
+    }
+
+    // ============================================================================
+    // Photo 相关方法
+    // ============================================================================
+
+    /// 批量添加照片到聚合根
+    ///
+    /// # 参数
+    /// - `photos`: 照片实体列表
+    /// - `photo_exifs`: 照片 EXIF 信息列表
+    ///
+    /// # 返回
+    /// - `anyhow::Result<usize>` - 添加的照片数量
+    ///
+    /// # 业务规则
+    /// - 照片路径不能重复
+    /// - 自动设置 media_library_id
+    /// - 自动更新媒体库的项目数量
+    pub fn add_photos_batch(
+        &mut self,
+        mut photos: Vec<photo::Model>,
+        photo_exifs: Vec<photo_exif::Model>,
+    ) -> anyhow::Result<usize> {
+        let mut added_count = 0;
+
+        for photo in &mut photos {
+            let path = photo.path.clone();
+
+            // 检查路径是否重复
+            if self.photos.iter().any(|p| p.path == path) {
+                tracing::warn!("Skipping duplicate photo path: {}", path);
+                continue;
+            }
+
+            // 确保 media_library_id 正确
+            photo.media_library_id = self.media_library.id;
+            self.photos.push(photo.clone());
+            added_count += 1;
+        }
+
+        // 添加 EXIF 信息
+        self.photo_exifs.extend(photo_exifs);
+
+        // 更新媒体库的项目数量
+        if added_count > 0 {
+            self.media_library.increment_item_count(added_count as i32)?;
+        }
+
+        Ok(added_count)
+    }
+
+    /// 移除照片从聚合根
+    ///
+    /// # 参数
+    /// - `photo_id`: 照片 ID
+    ///
+    /// # 返回
+    /// - `anyhow::Result<photo::Model>` - 移除的照片实体
+    ///
+    /// # 业务规则
+    /// - 照片必须属于当前媒体库
+    /// - 自动更新媒体库的项目数量
+    pub fn remove_photo(&mut self, photo_id: i32) -> anyhow::Result<photo::Model> {
+        // 查找照片索引
+        let index = self.photos.iter().position(|p| p.id == photo_id)
+            .ok_or_else(|| anyhow::anyhow!("Photo with id {} not found", photo_id))?;
+
+        // 移除照片
+        let photo = self.photos.remove(index);
+
+        // 移除对应的 EXIF 信息
+        if let Some(exif_index) = self.photo_exifs.iter().position(|e| e.photo_id == photo_id) {
+            self.photo_exifs.remove(exif_index);
+        }
+
+        // 更新媒体库的项目数量
+        self.media_library.decrement_item_count(1)?;
+
+        Ok(photo)
+    }
+
+    /// 获取照片数量
+    pub fn photo_count(&self) -> usize {
+        self.photos.len()
     }
 }

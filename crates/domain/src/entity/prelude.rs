@@ -5,4 +5,8 @@ pub use super::game::Entity as Game;
 pub use super::manga::Entity as Manga;
 pub use super::media_library::Entity as MediaLibrary;
 pub use super::movie::Entity as Movie;
+pub use super::photo::Entity as Photo;
+pub use super::photo_album::Entity as PhotoAlbum;
+pub use super::photo_album_item::Entity as PhotoAlbumItem;
+pub use super::photo_exif::Entity as PhotoExif;
 pub use super::user::Entity as User;

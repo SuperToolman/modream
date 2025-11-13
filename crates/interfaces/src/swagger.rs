@@ -6,6 +6,7 @@ use application::dto::{
     FixPasswordsResponse, ImageInfo, OptimizedImageListResponse,
     OptimizedChapterImageListResponse,
     ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPathRequest,
+    PhotoInfo, PhotoDetailInfo, PhotoExifInfo, PhotoAlbumInfo,
 };
 use application::dto::config::{
     GameboxConfigResponse, UpdateGameboxConfigRequest,
@@ -15,7 +16,10 @@ use application::dto::config::{
     DatabaseConfigResponse, UpdateDatabaseConfigRequest,
 };
 use domain::entity::user::Model as UserModel;
-use crate::api::{auth, user, media_library, manga, manga_chapter, game, movie, config};
+use crate::api::{
+    auth, 
+    user, 
+    media_library, manga, manga_chapter, game, movie, config, photo};
 
 /// API 文档
 #[derive(OpenApi)]
@@ -49,6 +53,18 @@ use crate::api::{auth, user, media_library, manga, manga_chapter, game, movie, c
         movie::get_movies_by_media_library,
         movie::delete_movie,
         movie::get_movie_video,
+        photo::get_photo,
+        photo::get_photos_paged,
+        photo::get_photos_by_media_library,
+        photo::get_favorites_paged,
+        photo::get_photos_by_tag,
+        photo::delete_photo,
+        photo::toggle_favorite,
+        photo::get_photo_image,
+        photo::get_photo_thumbnail,
+        photo::get_all_albums,
+        photo::get_album,
+        photo::get_photos_by_album,
         config::get_config,
         config::update_config,
         config::get_server_config,
@@ -74,9 +90,14 @@ use crate::api::{auth, user, media_library, manga, manga_chapter, game, movie, c
             OptimizedChapterImageListResponse,
             GameInfo,
             MovieInfo,
+            PhotoInfo,
+            PhotoDetailInfo,
+            PhotoExifInfo,
+            PhotoAlbumInfo,
             PagedResponse<MangaInfo>,
             PagedResponse<GameInfo>,
             PagedResponse<MovieInfo>,
+            PagedResponse<PhotoInfo>,
             PaginationQuery,
             ImageInfo,
             ScanGamesRequest,
@@ -120,6 +141,7 @@ use crate::api::{auth, user, media_library, manga, manga_chapter, game, movie, c
         (name = "manga_chapter", description = "漫画章节相关接口（包括图片）"),
         (name = "game", description = "游戏相关接口"),
         (name = "movie", description = "电影相关接口"),
+        (name = "photo", description = "照片相关接口（包括相册）"),
         (name = "config", description = "配置相关接口"),
     )
 )]

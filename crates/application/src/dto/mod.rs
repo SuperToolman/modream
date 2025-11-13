@@ -9,8 +9,10 @@ pub mod manga;
 pub mod manga_chapter;
 pub mod game;
 pub mod movie;
+pub mod photo;
 pub mod common;
 pub mod config;
+pub mod scan_task;
 
 // 重新导出常用的 DTO
 pub use auth::{LoginRequest, LoginResponse};
@@ -20,6 +22,7 @@ pub use manga::{CreateMangaRequest, MangaInfo, PagedResponse, ImageInfo, Optimiz
 pub use manga_chapter::{MangaChapterInfo, OptimizedChapterImageListResponse};
 pub use game::{CreateGameRequest, GameInfo, ScanGamesRequest, LaunchGameRequest, UpdateDefaultStartPathRequest};
 pub use movie::MovieInfo;
+pub use photo::{PhotoInfo, PhotoDetailInfo, PhotoExifInfo, PhotoAlbumInfo, PhotoScanOptions, PhotoScanResult};
 pub use common::PaginationQuery;
 pub use config::{
     GameboxConfigResponse, UpdateGameboxConfigRequest,
@@ -27,3 +30,4 @@ pub use config::{
     DatabaseConfigResponse, UpdateDatabaseConfigRequest,
     MovieConfigResponse, UpdateMovieConfigRequest,
 };
+pub use scan_task::{ScanTaskInfo, ScanTaskStatus};

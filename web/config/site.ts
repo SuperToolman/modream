@@ -24,6 +24,10 @@ export const siteConfig = {
       label: "电影",
       href: "/content/movies",
     },
+    {
+      label: "照片",
+      href: "/content/photos",
+    },
   ],
   navMenuItems: [
     {

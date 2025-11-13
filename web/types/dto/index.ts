@@ -103,6 +103,14 @@ export {
   type UpdateDefaultStartPathRequest,
 } from './game.dto';
 
+// ==================== 扫描任务相关 ====================
+export {
+  ScanTaskStatusEnum,
+  ScanTaskInfoSchema,
+  type ScanTaskStatus,
+  type ScanTaskInfo,
+} from './scan_task.dto';
+
 // ==================== 通用相关 ====================
 export {
   ApiSuccessResponseSchema,

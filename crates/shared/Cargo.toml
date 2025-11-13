@@ -10,3 +10,4 @@ tracing-subscriber = {version = "0.3.20", features = ["env-filter", "chrono"] } 
 config = {version = "0.15.18", features = ["yaml"]} # config trait，使用的yaml类型的配置文件
 serde = {version = "1.0.228", features = ["derive"]} # 反序列化yaml配置
 anyhow = "1.0.100" # 便捷错误处理的库
+atty = "0.2.14"

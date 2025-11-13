@@ -5,6 +5,59 @@
 import { http } from '@/lib/http';
 import type { Movie, MoviePaginationResponse, MoviePaginationRequest } from '@/types/movie';
 
+// 电影数据缓存
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const movieDataCache = new Map<string, CacheEntry<any>>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 分钟缓存
+
+/**
+ * 生成缓存键
+ */
+function getCacheKey(endpoint: string, params?: any): string {
+  return `${endpoint}:${JSON.stringify(params || {})}`;
+}
+
+/**
+ * 从缓存获取数据
+ */
+function getFromCache<T>(key: string): T | null {
+  const entry = movieDataCache.get(key);
+  if (!entry) return null;
+
+  const now = Date.now();
+  if (now - entry.timestamp > CACHE_DURATION) {
+    movieDataCache.delete(key);
+    console.log(`🗑️ 缓存已过期: ${key}`);
+    return null;
+  }
+
+  console.log(`✅ 从缓存加载数据: ${key}`);
+  return entry.data as T;
+}
+
+/**
+ * 保存数据到缓存
+ */
+function saveToCache<T>(key: string, data: T): void {
+  movieDataCache.set(key, {
+    data,
+    timestamp: Date.now()
+  });
+  console.log(`💾 数据已缓存: ${key}`);
+}
+
+/**
+ * 清除所有电影数据缓存
+ */
+export function clearMoviesCache(): void {
+  movieDataCache.clear();
+  console.log('🗑️ 电影数据缓存已清空');
+}
+
 export const moviesApi = {
   /**
    * 获取电影分页列表
@@ -14,9 +67,22 @@ export const moviesApi = {
   async getPaginated(params: MoviePaginationRequest = {}): Promise<MoviePaginationResponse> {
     const pageIndex = params.page_index || 1;
     const pageSize = params.page_size || 20;
-    return await http.get<MoviePaginationResponse>(
+
+    // 检查缓存
+    const cacheKey = getCacheKey('/movies', { pageIndex, pageSize });
+    const cached = getFromCache<MoviePaginationResponse>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // 请求数据
+    const data = await http.get<MoviePaginationResponse>(
       `/movies?page_index=${pageIndex}&page_size=${pageSize}`
     );
+
+    // 存入缓存
+    saveToCache(cacheKey, data);
+    return data;
   },
 
   /**
@@ -43,6 +109,8 @@ export const moviesApi = {
    */
   async delete(id: number): Promise<void> {
     await http.delete(`/movies/${id}`);
+    // 清除缓存，因为电影已删除
+    clearMoviesCache();
   },
 
   /**

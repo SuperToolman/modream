@@ -2,7 +2,7 @@
 
 **Languages**: [English](docs/README.en.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/version-0.5.0--dev-blue.svg)](docs/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.6.0--dev-blue.svg)](docs/CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-15.3-black.svg)](https://nextjs.org/)
@@ -37,6 +37,7 @@
 - 📚 **漫画管理** - 完整的漫画库管理和阅读功能、智能标题提取、章节结构支持
 - 🎮 **游戏管理** - 游戏库管理、元数据自动识别（IGDB/DLsite/SteamDB）、游戏启动功能
 - 🎬 **电影管理** - 电影库管理、TMDB 元数据刮削、视频流式播放、完整主题支持
+- 📷 **照片管理** - 照片库管理、EXIF 信息展示、图片查看器、缩放平移旋转功能
 
 ## 📋 目录
 - [项目定位](#项目定位)
@@ -79,6 +80,15 @@
   - 视频流式传输（支持 HTTP Range 请求）
   - Bilibili 风格的详情页
   - 电影院式的播放页
+  - 完整的深色/浅色主题支持
+- **照片管理** - 照片库管理和查看功能
+  - 自动扫描和索引照片文件
+  - EXIF 元数据提取（相机、镜头、拍摄参数、GPS 等）
+  - 缩略图自动生成（多种尺寸）
+  - 高级图片查看器（缩放、平移、旋转）
+  - 缩略图导航（MiniMap）
+  - 按日期/名称/大小/收藏分组显示
+  - 无限滚动加载
   - 完整的深色/浅色主题支持
 - **媒体库** - 灵活的媒体库组织方式
 - **智能扫描** - 自动扫描和索引本地文件

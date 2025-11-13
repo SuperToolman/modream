@@ -2,6 +2,10 @@
 # 用法: .\start-dev.ps1
 # 功能: 在单个窗口启动 WebAPI + 前端开发服务器 + Tauri 桌面窗口
 
+# 设置控制台编码为 UTF-8（解决中文乱码问题）
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 Write-Host ' 启动 Modream 开发环境 (WebAPI + Web Dev + Tauri)...' -ForegroundColor Cyan
 Write-Host ''
 
@@ -48,7 +52,17 @@ Remove-Item -Path 'logs\frontend.log' -ErrorAction SilentlyContinue
 Write-Host ' 启动后端 API (端口 8080)...' -ForegroundColor Cyan
 $backendJob = Start-Job -ScriptBlock {
     Set-Location $using:PWD
-    cargo run --bin desktop -- --server 2>&1 | Tee-Object -FilePath 'logs\backend.log'
+    # 设置 UTF-8 编码
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+
+    # 使用重定向而不是 Tee-Object，以保持 UTF-8 编码
+    cargo run --bin desktop -- --server 2>&1 | ForEach-Object {
+        $line = $_.ToString()
+        Write-Output $line
+        # 使用 UTF-8 编码追加到日志文件
+        [System.IO.File]::AppendAllText("$using:PWD\logs\backend.log", "$line`n", [System.Text.Encoding]::UTF8)
+    }
 }
 
 # 等待后端启动
@@ -67,7 +81,17 @@ Write-Host ' 启动前端开发服务器 (端口 3000)...' -ForegroundColor Cyan
 $frontendJob = Start-Job -ScriptBlock {
     Set-Location $using:PWD
     Set-Location web
-    pnpm run dev 2>&1 | Tee-Object -FilePath '..\logs\frontend.log'
+    # 设置 UTF-8 编码
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+
+    # 使用重定向而不是 Tee-Object，以保持 UTF-8 编码
+    pnpm run dev 2>&1 | ForEach-Object {
+        $line = $_.ToString()
+        Write-Output $line
+        # 使用 UTF-8 编码追加到日志文件
+        [System.IO.File]::AppendAllText("$using:PWD\logs\frontend.log", "$line`n", [System.Text.Encoding]::UTF8)
+    }
 }
 
 # 等待前端启动

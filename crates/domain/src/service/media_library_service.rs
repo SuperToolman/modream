@@ -99,8 +99,9 @@ impl MediaLibraryDomainService {
     /// - "漫画" 类型支持扫描（扫描图片文件夹）
     /// - "游戏" 类型支持扫描（使用 gamebox 库扫描游戏）
     /// - "电影" 类型支持扫描（扫描视频文件并从 TMDB 获取元数据）
+    /// - "照片" 类型支持扫描（扫描照片文件夹并提取 EXIF 信息）
     pub fn is_scannable_media_type(media_type: &str) -> bool {
-        matches!(media_type, "漫画" | "游戏" | "电影")
+        matches!(media_type, "漫画" | "游戏" | "电影" | "照片")
     }
 
     /// 生成媒体库封面 URL
@@ -178,6 +179,7 @@ mod tests {
         assert!(MediaLibraryDomainService::is_scannable_media_type("漫画"));
         assert!(MediaLibraryDomainService::is_scannable_media_type("游戏"));
         assert!(MediaLibraryDomainService::is_scannable_media_type("电影"));
+        assert!(MediaLibraryDomainService::is_scannable_media_type("照片"));
 
         // 不支持扫描的类型
         assert!(!MediaLibraryDomainService::is_scannable_media_type("音乐"));

@@ -1,8 +1,9 @@
-use domain::repository::{MediaLibraryRepository, MangaRepository, MangaChapterRepository, GameRepository, MovieRepository};
+use domain::repository::{MediaLibraryRepository, MangaRepository, MangaChapterRepository, GameRepository, MovieRepository, PhotoRepository, PhotoExifRepository};
 use infrastructure::file_scanner;
 use std::sync::Arc;
 use crate::dto::CreateMediaLibraryRequest;
 use crate::image_service::ImageService;
+use crate::scan_task::ScanTaskManager;
 
 /// 媒体库服务
 pub struct MediaLibraryService {
@@ -11,7 +12,10 @@ pub struct MediaLibraryService {
     manga_chapter_repo: Arc<dyn MangaChapterRepository>,
     game_repo: Arc<dyn GameRepository>,
     movie_repo: Arc<dyn MovieRepository>,
+    photo_repo: Arc<dyn PhotoRepository>,
+    photo_exif_repo: Arc<dyn PhotoExifRepository>,
     image_service: Arc<ImageService>,
+    scan_task_manager: Arc<ScanTaskManager>,
 }
 
 impl MediaLibraryService {
@@ -22,7 +26,10 @@ impl MediaLibraryService {
         manga_chapter_repo: Arc<dyn MangaChapterRepository>,
         game_repo: Arc<dyn GameRepository>,
         movie_repo: Arc<dyn MovieRepository>,
+        photo_repo: Arc<dyn PhotoRepository>,
+        photo_exif_repo: Arc<dyn PhotoExifRepository>,
         image_service: Arc<ImageService>,
+        scan_task_manager: Arc<ScanTaskManager>,
     ) -> Self {
         Self {
             media_library_repo,
@@ -30,7 +37,10 @@ impl MediaLibraryService {
             manga_chapter_repo,
             game_repo,
             movie_repo,
+            photo_repo,
+            photo_exif_repo,
             image_service,
+            scan_task_manager,
         }
     }
 
@@ -112,6 +122,9 @@ impl MediaLibraryService {
             req.media_type.clone(),
         )?;
 
+        // 克隆 config 用于后续使用
+        let config_clone = req.config.clone();
+
         // 设置配置 JSON
         if let Some(config) = req.config {
             let config_json = serde_json::to_string(&config)?;
@@ -187,6 +200,24 @@ impl MediaLibraryService {
                     let movies = self.convert_video_scan_to_movies(video_scan_results, aggregate.media_library.id)?;
                     let added_count = aggregate.add_movies_batch(movies)?;
                     tracing::info!("Added {} movies to media library with full metadata", added_count);
+                }
+                "照片" => {
+                    // 扫描照片文件夹（传递配置）
+                    let config_json = config_clone.as_ref()
+                        .and_then(|v| serde_json::to_string(v).ok())
+                        .unwrap_or_else(|| "{}".to_string());
+
+                    let (photos, photo_exifs) = self.scan_photo_folders(
+                        &req.paths_json,
+                        aggregate.media_library.id,
+                        &config_json
+                    ).await?;
+
+                    tracing::info!("Scanned {} photos from folders", photos.len());
+
+                    // 添加到聚合根
+                    let added_count = aggregate.add_photos_batch(photos, photo_exifs)?;
+                    tracing::info!("Added {} photos to media library", added_count);
                 }
                 _ => {
                     tracing::warn!("Media type {} is scannable but not implemented", req.media_type);
@@ -298,6 +329,34 @@ impl MediaLibraryService {
 
             // 批量插入电影
             self.movie_repo.create_batch(movies).await?;
+        }
+
+        // 批量创建照片
+        if !aggregate.photos.is_empty() {
+            // 更新照片的 media_library_id（因为数据库生成了 ID）
+            let mut photos = aggregate.photos;
+            for photo in &mut photos {
+                photo.media_library_id = media_library.id;
+            }
+
+            tracing::info!("Creating {} photos for media library {}", photos.len(), media_library.id);
+
+            // 批量插入照片
+            let created_photos = self.photo_repo.create_batch(photos).await?;
+
+            // 批量创建 EXIF 信息
+            if !aggregate.photo_exifs.is_empty() {
+                // 更新 EXIF 的 photo_id（假设 photo_exifs 和 photos 的顺序是对应的）
+                let mut photo_exifs = aggregate.photo_exifs;
+                for (index, exif) in photo_exifs.iter_mut().enumerate() {
+                    if index < created_photos.len() {
+                        exif.photo_id = created_photos[index].id;
+                    }
+                }
+
+                tracing::info!("Creating {} photo EXIF records", photo_exifs.len());
+                self.photo_exif_repo.create_batch(photo_exifs).await?;
+            }
         }
 
         Ok(media_library)
@@ -811,69 +870,756 @@ impl MediaLibraryService {
 
         Ok(movies)
     }
+
+    /// 从配置 JSON 中提取照片扫描选项
+    ///
+    /// # 参数
+    /// - `config_json`: 配置 JSON 字符串
+    /// - `thumbnail_dir`: 缩略图保存目录
+    ///
+    /// # 返回
+    /// - `ScanOptions` - 照片扫描选项
+    fn extract_photo_scan_options(&self, config_json: &str, thumbnail_dir: &str) -> infrastructure::file_scanner::photo_scanner::models::ScanOptions {
+        use infrastructure::file_scanner::photo_scanner::models::{ScanOptions, ThumbnailResizeFilter};
+
+        // 默认值
+        let mut thumbnail_max_width = 300u32;
+        let mut thumbnail_max_height = 300u32;
+        let mut thumbnail_resize_filter = ThumbnailResizeFilter::Triangle;
+        let mut extract_exif = true;
+        let mut calculate_hash = true;
+        let mut supported_formats = vec![
+            "jpg".to_string(),
+            "jpeg".to_string(),
+            "png".to_string(),
+            "gif".to_string(),
+            "bmp".to_string(),
+            "webp".to_string(),
+            "tiff".to_string(),
+            "heic".to_string(),
+            "heif".to_string(),
+        ];
+
+        // 解析配置
+        if !config_json.is_empty() && config_json != "{}" {
+            if let Ok(config) = serde_json::from_str::<serde_json::Value>(config_json) {
+                // 提取缩略图尺寸
+                if let Some(width) = config.get("photoThumbnailMaxWidth").and_then(|v| v.as_u64()) {
+                    thumbnail_max_width = width as u32;
+                }
+                if let Some(height) = config.get("photoThumbnailMaxHeight").and_then(|v| v.as_u64()) {
+                    thumbnail_max_height = height as u32;
+                }
+
+                // 提取缩放算法
+                if let Some(filter_str) = config.get("photoThumbnailResizeFilter").and_then(|v| v.as_str()) {
+                    thumbnail_resize_filter = match filter_str {
+                        "triangle" => ThumbnailResizeFilter::Triangle,
+                        "catmullrom" => ThumbnailResizeFilter::CatmullRom,
+                        "lanczos3" => ThumbnailResizeFilter::Lanczos3,
+                        _ => ThumbnailResizeFilter::Triangle, // 默认
+                    };
+                    tracing::info!("Using thumbnail resize filter: {:?}", thumbnail_resize_filter);
+                }
+
+                // 提取 EXIF 和哈希选项
+                if let Some(exif) = config.get("photoExtractExif").and_then(|v| v.as_bool()) {
+                    extract_exif = exif;
+                }
+                if let Some(hash) = config.get("photoCalculateHash").and_then(|v| v.as_bool()) {
+                    calculate_hash = hash;
+                }
+
+                // 提取支持的格式
+                if let Some(formats_str) = config.get("photoSupportedFormats").and_then(|v| v.as_str()) {
+                    supported_formats = formats_str
+                        .split(',')
+                        .map(|s| s.trim().to_lowercase())
+                        .collect();
+                }
+            }
+        }
+
+        ScanOptions {
+            generate_thumbnail: true,
+            thumbnail_max_width,
+            thumbnail_max_height,
+            thumbnail_resize_filter,
+            thumbnail_dir: Some(thumbnail_dir.to_string()),
+            calculate_hash,
+            extract_exif,
+            supported_formats,
+        }
+    }
+
+    /// 扫描照片文件夹
+    ///
+    /// # 参数
+    /// - `paths_json`: 路径 JSON 数组
+    /// - `media_library_id`: 所属媒体库 ID
+    /// - `config_json`: 配置 JSON 字符串
+    ///
+    /// # 返回
+    /// - `anyhow::Result<(Vec<domain::entity::photo::Model>, Vec<domain::entity::photo_exif::Model>)>` - 照片实体列表和 EXIF 信息列表
+    ///
+    /// # DDD 设计
+    /// - ✅ 基础设施层：photo_scanner - 只负责扫描文件夹，提取 EXIF 信息
+    /// - ✅ 应用层：编排扫描逻辑，处理多路径并行扫描
+    async fn scan_photo_folders(
+        &self,
+        paths_json: &str,
+        media_library_id: i32,
+        config_json: &str,
+    ) -> anyhow::Result<(Vec<domain::entity::photo::Model>, Vec<domain::entity::photo_exif::Model>)> {
+        // 解析 JSON 路径数组
+        let paths: Vec<String> = serde_json::from_str(paths_json)
+            .unwrap_or_else(|_| vec![paths_json.to_string()]);
+
+        // 创建缩略图保存目录（保存到 data/thumbnails）
+        let thumbnail_dir = std::path::PathBuf::from("data")
+            .join("thumbnails")
+            .join(media_library_id.to_string());
+
+        // 确保目录存在
+        std::fs::create_dir_all(&thumbnail_dir)
+            .map_err(|e| anyhow::anyhow!("创建缩略图目录失败: {}", e))?;
+
+        // 从配置中提取扫描选项
+        let scan_options = self.extract_photo_scan_options(
+            config_json,
+            &thumbnail_dir.to_string_lossy().to_string()
+        );
+
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let mut all_photos = Vec::new();
+        let mut all_exifs = Vec::new();
+
+        // 如果只有一个路径，直接顺序扫描（避免并行开销）
+        if paths.len() == 1 {
+            let path = &paths[0];
+            tracing::info!("Scanning photos in single path: {}", path);
+
+            // ✅ 基础设施层：扫描照片文件夹
+            let scan_results = infrastructure::file_scanner::photo_scanner::photo_scan_with_options(
+                path.clone(),
+                scan_options.clone()
+            ).await
+            .map_err(|e| anyhow::anyhow!("Photo scan error: {}", e))?;
+
+            tracing::info!("Found {} photos in {}", scan_results.len(), path);
+
+            // 转换为实体
+            for scan_result in scan_results {
+                let photo = domain::entity::photo::Model {
+                    id: 0, // 数据库会自动生成
+                    // 使用文件的创建时间和修改时间，如果获取失败则使用当前时间
+                    create_time: scan_result.file_created_time.clone().unwrap_or_else(|| now.clone()),
+                    update_time: scan_result.file_modified_time.clone().unwrap_or_else(|| now.clone()),
+                    path: scan_result.path.clone(),
+                    byte_size: scan_result.byte_size as i64,
+                    resolution: scan_result.resolution.clone(),
+                    extension: scan_result.extension.clone(),
+                    width: scan_result.width,
+                    height: scan_result.height,
+                    thumbnail_path: scan_result.thumbnail_path.clone(),
+                    hash: scan_result.hash.clone(),
+                    is_deleted: false,
+                    is_favorite: false,
+                    tags: None,
+                    media_library_id,
+                };
+
+                all_photos.push(photo);
+
+                // 如果有 EXIF 信息，创建 EXIF 实体
+                if let Some(exif) = scan_result.exif {
+                    let photo_exif = domain::entity::photo_exif::Model {
+                        id: 0, // 数据库会自动生成
+                        photo_id: 0, // 稍后会更新
+                        camera_make: exif.camera_make,
+                        camera_model: exif.camera_model,
+                        software: exif.software,
+                        f_number: exif.f_number,
+                        exposure_time: exif.exposure_time,
+                        iso_speed: exif.iso_speed,
+                        focal_length: exif.focal_length,
+                        focal_length_in_35mm: exif.focal_length_in_35mm,
+                        exposure_program: exif.exposure_program,
+                        exposure_mode: exif.exposure_mode,
+                        metering_mode: exif.metering_mode,
+                        white_balance: exif.white_balance,
+                        flash: exif.flash,
+                        scene_capture_type: exif.scene_capture_type,
+                        gps_latitude: exif.gps_latitude,
+                        gps_longitude: exif.gps_longitude,
+                        gps_altitude: exif.gps_altitude,
+                        date_time_original: exif.date_time_original,
+                        image_width: exif.image_width,
+                        image_height: exif.image_height,
+                        orientation: exif.orientation,
+                        color_space: exif.color_space,
+                        resolution_unit: exif.resolution_unit,
+                        x_resolution: exif.x_resolution,
+                        y_resolution: exif.y_resolution,
+                        has_gps: exif.has_gps,
+                        has_thumbnail: exif.has_thumbnail,
+                    };
+
+                    all_exifs.push(photo_exif);
+                }
+            }
+
+            return Ok((all_photos, all_exifs));
+        }
+
+        // 多路径：并行扫描所有路径
+        tracing::info!("Scanning photos in {} paths (parallel mode)", paths.len());
+
+        // 创建并行任务
+        let mut tasks = Vec::new();
+        for path in paths {
+            let scan_options_clone = scan_options.clone();
+            let task = tokio::spawn(async move {
+                tracing::debug!("Scanning photo path: {}", path);
+                let result = infrastructure::file_scanner::photo_scanner::photo_scan_with_options(path.clone(), scan_options_clone).await;
+                (path, result)
+            });
+            tasks.push(task);
+        }
+
+        // 等待所有任务完成
+        for task in tasks {
+            let (path, result) = task.await
+                .map_err(|e| anyhow::anyhow!("Task join error: {}", e))?;
+
+            match result {
+                Ok(scan_results) => {
+                    tracing::info!("Found {} photos in {}", scan_results.len(), path);
+
+                    // 转换为实体
+                    for scan_result in scan_results {
+                        let photo = domain::entity::photo::Model {
+                            id: 0,
+                            create_time: now.clone(),
+                            update_time: now.clone(),
+                            path: scan_result.path.clone(),
+                            byte_size: scan_result.byte_size as i64,
+                            resolution: scan_result.resolution.clone(),
+                            extension: scan_result.extension.clone(),
+                            width: scan_result.width,
+                            height: scan_result.height,
+                            thumbnail_path: scan_result.thumbnail_path.clone(),
+                            hash: scan_result.hash.clone(),
+                            is_deleted: false,
+                            is_favorite: false,
+                            tags: None,
+                            media_library_id,
+                        };
+
+                        all_photos.push(photo);
+
+                        // 如果有 EXIF 信息，创建 EXIF 实体
+                        if let Some(exif) = scan_result.exif {
+                            let photo_exif = domain::entity::photo_exif::Model {
+                                id: 0,
+                                photo_id: 0, // 稍后会更新
+                                camera_make: exif.camera_make,
+                                camera_model: exif.camera_model,
+                                software: exif.software,
+                                f_number: exif.f_number,
+                                exposure_time: exif.exposure_time,
+                                iso_speed: exif.iso_speed,
+                                focal_length: exif.focal_length,
+                                focal_length_in_35mm: exif.focal_length_in_35mm,
+                                exposure_program: exif.exposure_program,
+                                exposure_mode: exif.exposure_mode,
+                                metering_mode: exif.metering_mode,
+                                white_balance: exif.white_balance,
+                                flash: exif.flash,
+                                scene_capture_type: exif.scene_capture_type,
+                                gps_latitude: exif.gps_latitude,
+                                gps_longitude: exif.gps_longitude,
+                                gps_altitude: exif.gps_altitude,
+                                date_time_original: exif.date_time_original,
+                                image_width: exif.image_width,
+                                image_height: exif.image_height,
+                                orientation: exif.orientation,
+                                color_space: exif.color_space,
+                                resolution_unit: exif.resolution_unit,
+                                x_resolution: exif.x_resolution,
+                                y_resolution: exif.y_resolution,
+                                has_gps: exif.has_gps,
+                                has_thumbnail: exif.has_thumbnail,
+                            };
+
+                            all_exifs.push(photo_exif);
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to scan photos in path {}: {}", path, e);
+                    // 继续处理其他路径，不中断整个扫描过程
+                }
+            }
+        }
+
+        tracing::info!("Total photos found: {}", all_photos.len());
+        Ok((all_photos, all_exifs))
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use domain::service::MangaDomainService;
+impl MediaLibraryService {
+    /// 创建媒体库（异步扫描版本）
+    /// 立即返回媒体库信息，后台异步扫描
+    pub async fn create_async(&self, req: CreateMediaLibraryRequest) -> anyhow::Result<domain::entity::media_library::Model> {
+        // 创建聚合根
+        let mut aggregate = domain::MediaLibraryAggregate::new(
+            req.title.clone(),
+            req.paths_json.clone(),
+            req.source.clone(),
+            req.media_type.clone(),
+        )?;
 
-    #[test]
-    fn test_extract_title_with_author_bracket() {
-        // 测试 [作者名] 标题 的格式
-        let result = MangaDomainService::extract_title_from_path("/path/to/[Simao] 先輩のお誘い");
-        assert_eq!(result, "先輩のお誘い");
+        // 设置配置 JSON
+        if let Some(config) = req.config.clone() {
+            let config_json = serde_json::to_string(&config)?;
+            aggregate.media_library.update_config(config_json)?;
+        }
+
+        // 检查是否可扫描（在移动 media_library 之前）
+        let is_scannable = aggregate.is_scannable();
+
+        // 先保存媒体库（不包含媒体内容）
+        let media_library = self.media_library_repo.create(aggregate.media_library).await?;
+
+        // 如果是可扫描类型，启动后台扫描任务
+        if is_scannable {
+            let task_id = media_library.id.to_string();
+
+            // 创建扫描任务
+            self.scan_task_manager.create_task(
+                task_id.clone(),
+                req.title.clone(),
+                req.media_type.clone(),
+            ).await;
+
+            // 克隆必要的数据用于后台任务
+            let media_library_repo = Arc::clone(&self.media_library_repo);
+            let photo_repo = Arc::clone(&self.photo_repo);
+            let photo_exif_repo = Arc::clone(&self.photo_exif_repo);
+            let scan_task_manager = Arc::clone(&self.scan_task_manager);
+            let media_library_id = media_library.id;
+            let req_clone = req.clone(); // 克隆 req 以避免部分移动
+
+            // 启动后台扫描任务
+            tokio::spawn(async move {
+                Self::background_scan_task_static(
+                    task_id,
+                    media_library_id,
+                    req_clone,
+                    media_library_repo,
+                    photo_repo,
+                    photo_exif_repo,
+                    scan_task_manager,
+                ).await;
+            });
+        }
+
+        Ok(media_library)
     }
 
-    #[test]
-    fn test_extract_title_with_author_bracket_and_spaces() {
-        // 测试 [作者名]  标题  的格式（有多个空格）
-        let result = MangaDomainService::extract_title_from_path("/path/to/[ははきぎ]   Fanbox 10-31");
-        assert_eq!(result, "Fanbox 10-31");
+    /// 后台扫描任务（静态方法）
+    async fn background_scan_task_static(
+        task_id: String,
+        media_library_id: i32,
+        req: CreateMediaLibraryRequest,
+        media_library_repo: Arc<dyn MediaLibraryRepository>,
+        photo_repo: Arc<dyn PhotoRepository>,
+        photo_exif_repo: Arc<dyn PhotoExifRepository>,
+        scan_task_manager: Arc<ScanTaskManager>,
+    ) {
+        tracing::info!("Starting background scan task for media library {}", media_library_id);
+
+        // 执行扫描
+        let result = Self::perform_scan_static(
+            &task_id,
+            media_library_id,
+            &req,
+            photo_repo.clone(),
+            photo_exif_repo,
+            Arc::clone(&scan_task_manager),
+        ).await;
+
+        // 更新任务状态
+        match result {
+            Ok(photo_count) => {
+                // 更新媒体库的 item_count
+                if photo_count > 0 {
+                    if let Ok(Some(mut media_library)) = media_library_repo.find_by_id(media_library_id).await {
+                        if let Err(e) = media_library.update_item_count(photo_count as i32) {
+                            tracing::error!("Failed to update item count: {}", e);
+                        } else {
+                            if let Err(e) = media_library_repo.update(media_library).await {
+                                tracing::error!("Failed to save updated media library: {}", e);
+                            } else {
+                                tracing::info!("Updated media library item_count to {}", photo_count);
+                            }
+                        }
+                    }
+                }
+
+                scan_task_manager.update_task(&task_id, |task| {
+                    task.complete();
+                }).await;
+                tracing::info!("Background scan task completed for media library {}", media_library_id);
+            }
+            Err(e) => {
+                scan_task_manager.update_task(&task_id, |task| {
+                    task.fail(e.to_string());
+                }).await;
+                tracing::error!("Background scan task failed for media library {}: {}", media_library_id, e);
+            }
+        }
     }
 
-    #[test]
-    fn test_extract_title_without_bracket() {
-        // 测试没有中括号的格式（中括号在中间，不移除）
-        let result = MangaDomainService::extract_title_from_path("/path/to/Axiah - Suguha [159 p]");
-        assert_eq!(result, "Axiah - Suguha");
+    /// 执行扫描（带进度更新，静态方法）
+    /// 返回扫描到的项目数量
+    async fn perform_scan_static(
+        task_id: &str,
+        media_library_id: i32,
+        req: &CreateMediaLibraryRequest,
+        photo_repo: Arc<dyn PhotoRepository>,
+        photo_exif_repo: Arc<dyn PhotoExifRepository>,
+        scan_task_manager: Arc<ScanTaskManager>,
+    ) -> anyhow::Result<usize> {
+        match req.media_type.as_str() {
+            "照片" => {
+                // 提取配置 JSON
+                let config_json = req.config.as_ref()
+                    .and_then(|v| serde_json::to_string(v).ok())
+                    .unwrap_or_else(|| "{}".to_string());
+
+                let count = Self::scan_photos_with_progress_static(
+                    task_id,
+                    media_library_id,
+                    &req.paths_json,
+                    &config_json,
+                    photo_repo,
+                    photo_exif_repo,
+                    scan_task_manager,
+                ).await?;
+
+                Ok(count)
+            }
+            "电影" => {
+                // TODO: 实现电影扫描进度
+                tracing::warn!("Movie scanning with progress not implemented yet");
+                Ok(0)
+            }
+            "漫画" => {
+                // TODO: 实现漫画扫描进度
+                tracing::warn!("Manga scanning with progress not implemented yet");
+                Ok(0)
+            }
+            _ => {
+                tracing::warn!("Media type {} scanning not implemented", req.media_type);
+                Ok(0)
+            }
+        }
     }
 
-    #[test]
-    fn test_extract_title_simple_name() {
-        // 测试简单的文件夹名称
-        let result = MangaDomainService::extract_title_from_path("/path/to/My Manga");
-        assert_eq!(result, "My Manga");
+    /// 从配置 JSON 中提取照片扫描选项（静态方法）
+    fn extract_photo_scan_options_static(config_json: &str, thumbnail_dir: &str) -> infrastructure::file_scanner::photo_scanner::models::ScanOptions {
+        use infrastructure::file_scanner::photo_scanner::models::{ScanOptions, ThumbnailResizeFilter};
+
+        // 默认值
+        let mut thumbnail_max_width = 300u32;
+        let mut thumbnail_max_height = 300u32;
+        let mut thumbnail_resize_filter = ThumbnailResizeFilter::Triangle;
+        let mut extract_exif = true;
+        let mut calculate_hash = true;
+        let mut supported_formats = vec![
+            "jpg".to_string(),
+            "jpeg".to_string(),
+            "png".to_string(),
+            "gif".to_string(),
+            "bmp".to_string(),
+            "webp".to_string(),
+            "tiff".to_string(),
+            "heic".to_string(),
+            "heif".to_string(),
+        ];
+
+        // 解析配置
+        if !config_json.is_empty() && config_json != "{}" {
+            if let Ok(config) = serde_json::from_str::<serde_json::Value>(config_json) {
+                // 提取缩略图尺寸
+                if let Some(width) = config.get("photoThumbnailMaxWidth").and_then(|v| v.as_u64()) {
+                    thumbnail_max_width = width as u32;
+                }
+                if let Some(height) = config.get("photoThumbnailMaxHeight").and_then(|v| v.as_u64()) {
+                    thumbnail_max_height = height as u32;
+                }
+
+                // 提取缩放算法
+                if let Some(filter_str) = config.get("photoThumbnailResizeFilter").and_then(|v| v.as_str()) {
+                    thumbnail_resize_filter = match filter_str {
+                        "triangle" => ThumbnailResizeFilter::Triangle,
+                        "catmullrom" => ThumbnailResizeFilter::CatmullRom,
+                        "lanczos3" => ThumbnailResizeFilter::Lanczos3,
+                        _ => ThumbnailResizeFilter::Triangle, // 默认
+                    };
+                    tracing::info!("Using thumbnail resize filter: {:?}", thumbnail_resize_filter);
+                }
+
+                // 提取 EXIF 和哈希选项
+                if let Some(exif) = config.get("photoExtractExif").and_then(|v| v.as_bool()) {
+                    extract_exif = exif;
+                }
+                if let Some(hash) = config.get("photoCalculateHash").and_then(|v| v.as_bool()) {
+                    calculate_hash = hash;
+                }
+
+                // 提取支持的格式
+                if let Some(formats_str) = config.get("photoSupportedFormats").and_then(|v| v.as_str()) {
+                    supported_formats = formats_str
+                        .split(',')
+                        .map(|s| s.trim().to_lowercase())
+                        .collect();
+                }
+            }
+        }
+
+        ScanOptions {
+            generate_thumbnail: true,
+            thumbnail_max_width,
+            thumbnail_max_height,
+            thumbnail_resize_filter,
+            thumbnail_dir: Some(thumbnail_dir.to_string()),
+            calculate_hash,
+            extract_exif,
+            supported_formats,
+        }
     }
 
-    #[test]
-    fn test_extract_title_empty_bracket() {
-        // 测试空中括号的情况
-        let result = MangaDomainService::extract_title_from_path("/path/to/[] My Manga");
-        assert_eq!(result, "My Manga");
+    /// 扫描照片（带进度更新，静态方法）
+    /// 返回成功扫描的照片数量
+    async fn scan_photos_with_progress_static(
+        task_id: &str,
+        media_library_id: i32,
+        paths_json: &str,
+        config_json: &str,
+        photo_repo: Arc<dyn PhotoRepository>,
+        _photo_exif_repo: Arc<dyn PhotoExifRepository>,
+        scan_task_manager: Arc<ScanTaskManager>,
+    ) -> anyhow::Result<usize> {
+        use std::path::PathBuf;
+
+        // 解析路径
+        let paths: Vec<String> = serde_json::from_str(paths_json)
+            .unwrap_or_else(|_| vec![paths_json.to_string()]);
+
+        // 创建缩略图目录
+        let thumbnail_dir = PathBuf::from("data")
+            .join("thumbnails")
+            .join(media_library_id.to_string());
+        std::fs::create_dir_all(&thumbnail_dir)?;
+
+        // 从配置中提取扫描选项
+        let scan_options = Self::extract_photo_scan_options_static(
+            config_json,
+            &thumbnail_dir.to_string_lossy().to_string()
+        );
+
+        // 第一步：快速扫描所有路径，只获取文件列表（不处理）
+        use ignore::WalkBuilder;
+        let mut all_photo_files = Vec::new();
+
+        for path in &paths {
+            let walker = WalkBuilder::new(path)
+                .hidden(false)
+                .git_ignore(false)
+                .build();
+
+            for entry in walker {
+                if let Ok(entry) = entry {
+                    let file_path = entry.path();
+                    if file_path.is_file() {
+                        if let Some(ext) = file_path.extension() {
+                            let ext_str = ext.to_string_lossy().to_lowercase();
+                            if scan_options.supported_formats.contains(&ext_str) {
+                                all_photo_files.push(file_path.to_path_buf());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        tracing::info!("找到 {} 个照片文件，开始并发处理", all_photo_files.len());
+
+        // 更新任务：开始扫描（设置总文件数）
+        scan_task_manager.update_task(task_id, |task| {
+            task.start_scanning(all_photo_files.len());
+        }).await;
+
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+        // 第二步：并发处理照片（使用 Semaphore 限制并发数）
+        use tokio::sync::Semaphore;
+        use futures::future::join_all;
+
+        let semaphore = Arc::new(Semaphore::new(4)); // 同时处理 4 张照片
+        let scan_options = Arc::new(scan_options);
+
+        let tasks: Vec<_> = all_photo_files.into_iter().map(|photo_path| {
+            let sem = semaphore.clone();
+            let scan_options = scan_options.clone();
+            let task_id = task_id.to_string();
+            let scan_task_manager = scan_task_manager.clone();
+            let now = now.clone();
+
+            tokio::spawn(async move {
+                let _permit = sem.acquire().await.unwrap();
+
+                // 处理照片（提取元数据、生成缩略图等）
+                use infrastructure::file_scanner::photo_scanner::PhotoScanner;
+                let scanner = PhotoScanner::new().with_options((*scan_options).clone());
+
+                match scanner.process_photo(&photo_path).await {
+                    Ok(result) => {
+                        // 更新进度为成功
+                        scan_task_manager.update_task(&task_id, |task| {
+                            task.update_progress(Some(result.path.clone()), true);
+                        }).await;
+
+                        // 转换为实体（使用 Model 而不是 ActiveModel）
+                        let photo = domain::entity::photo::Model {
+                            id: 0, // 数据库会自动生成
+                            // 使用文件的创建时间和修改时间，如果获取失败则使用当前时间
+                            create_time: result.file_created_time.clone().unwrap_or_else(|| now.clone()),
+                            update_time: result.file_modified_time.clone().unwrap_or_else(|| now.clone()),
+                            path: result.path.clone(),
+                            byte_size: result.byte_size as i64,
+                            resolution: result.resolution.clone(),
+                            extension: result.extension.clone(),
+                            width: result.width,
+                            height: result.height,
+                            thumbnail_path: result.thumbnail_path.clone(),
+                            hash: result.hash.clone(),
+                            is_deleted: false,
+                            is_favorite: false,
+                            tags: None,
+                            media_library_id,
+                        };
+
+                        // 如果有 EXIF 数据
+                        let exif = if let Some(exif_data) = result.exif {
+                            Some(domain::entity::photo_exif::Model {
+                                id: 0, // 数据库会自动生成
+                                photo_id: 0, // 稍后会更新
+                                camera_make: exif_data.camera_make,
+                                camera_model: exif_data.camera_model,
+                                software: exif_data.software,
+                                f_number: exif_data.f_number,
+                                exposure_time: exif_data.exposure_time,
+                                iso_speed: exif_data.iso_speed,
+                                focal_length: exif_data.focal_length,
+                                focal_length_in_35mm: exif_data.focal_length_in_35mm,
+                                exposure_program: exif_data.exposure_program,
+                                exposure_mode: exif_data.exposure_mode,
+                                metering_mode: exif_data.metering_mode,
+                                white_balance: exif_data.white_balance,
+                                flash: exif_data.flash,
+                                scene_capture_type: exif_data.scene_capture_type,
+                                gps_latitude: exif_data.gps_latitude,
+                                gps_longitude: exif_data.gps_longitude,
+                                gps_altitude: exif_data.gps_altitude,
+                                date_time_original: exif_data.date_time_original,
+                                image_width: exif_data.image_width,
+                                image_height: exif_data.image_height,
+                                orientation: exif_data.orientation,
+                                color_space: exif_data.color_space,
+                                resolution_unit: exif_data.resolution_unit,
+                                x_resolution: exif_data.x_resolution,
+                                y_resolution: exif_data.y_resolution,
+                                has_gps: exif_data.has_gps,
+                                has_thumbnail: exif_data.has_thumbnail,
+                            })
+                        } else {
+                            None
+                        };
+
+                        Ok((photo, exif))
+                    }
+                    Err(e) => {
+                        // 处理失败，更新进度
+                        scan_task_manager.update_task(&task_id, |task| {
+                            task.update_progress(Some(photo_path.to_string_lossy().to_string()), false);
+                        }).await;
+                        tracing::warn!("处理照片失败 {}: {}", photo_path.display(), e);
+                        Err(e)
+                    }
+                }
+            })
+        }).collect();
+
+        // 等待所有任务完成
+        let results = join_all(tasks).await;
+
+        // 收集成功的结果
+        let mut all_photos = Vec::new();
+        let mut all_exifs = Vec::new();
+
+        for result in results {
+            if let Ok(Ok((photo, exif))) = result {
+                all_photos.push(photo);
+                if let Some(exif) = exif {
+                    all_exifs.push(exif);
+                }
+            }
+        }
+
+        // 批量保存到数据库
+        tracing::info!("准备保存 {} 张照片到数据库", all_photos.len());
+        let photo_count = all_photos.len();
+
+        if !all_photos.is_empty() {
+            let created_photos = photo_repo.create_batch(all_photos).await?;
+            tracing::info!("成功保存 {} 张照片到数据库", created_photos.len());
+
+            // 保存 EXIF 数据（需要关联 photo_id）
+            if !all_exifs.is_empty() {
+                tracing::info!("准备保存 {} 条 EXIF 数据", all_exifs.len());
+                let mut updated_exifs = Vec::new();
+                for (index, mut exif) in all_exifs.into_iter().enumerate() {
+                    if let Some(photo) = created_photos.get(index) {
+                        exif.photo_id = photo.id; // 直接赋值，因为 exif 是 Model 类型
+                        updated_exifs.push(exif);
+                    }
+                }
+                if !updated_exifs.is_empty() {
+                    let created_exifs = _photo_exif_repo.create_batch(updated_exifs).await?;
+                    tracing::info!("成功保存 {} 条 EXIF 数据", created_exifs.len());
+                }
+            }
+        } else {
+            tracing::warn!("没有照片需要保存");
+        }
+
+        Ok(photo_count)
     }
 
-    #[test]
-    fn test_extract_title_japanese_author() {
-        // 测试日文作者名的情况
-        let result = MangaDomainService::extract_title_from_path("/path/to/[紅玉] 便器姫子-無文字、落書差分");
-        assert_eq!(result, "便器姫子-無文字、落書差分");
+    /// 获取扫描任务状态
+    pub async fn get_scan_task(&self, task_id: &str) -> Option<crate::scan_task::ScanTask> {
+        self.scan_task_manager.get_task(task_id).await
     }
 
-    #[test]
-    fn test_extract_title_multiple_brackets() {
-        // 测试多个中括号的情况
-        let result = MangaDomainService::extract_title_from_path("/path/to/[超勇汉化组] [むりぽよ] 标题 [中国翻译]");
-        assert_eq!(result, "标题");
-    }
-
-    #[test]
-    fn test_extract_title_long_title() {
-        // 测试超长标题的情况
-        let long_title = "a".repeat(250);
-        let path = format!("/path/to/{}", long_title);
-        let result = MangaDomainService::extract_title_from_path(&path);
-        assert_eq!(result.len(), 200); // 197 + "..." = 200
-        assert!(result.ends_with("..."));
+    /// 取消扫描任务
+    pub async fn cancel_scan_task(&self, task_id: &str) -> anyhow::Result<()> {
+        self.scan_task_manager.update_task(task_id, |task| {
+            task.cancel();
+        }).await;
+        Ok(())
     }
 }
-

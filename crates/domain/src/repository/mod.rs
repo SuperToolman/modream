@@ -6,6 +6,7 @@ pub mod manga;
 pub mod manga_chapter;
 pub mod media_library;
 pub mod movie;
+pub mod photo;
 pub mod user;
 
 pub use game::GameRepository;
@@ -13,4 +14,5 @@ pub use manga::MangaRepository;
 pub use manga_chapter::MangaChapterRepository;
 pub use media_library::MediaLibraryRepository;
 pub use movie::MovieRepository;
+pub use photo::{PhotoRepository, PhotoExifRepository, PhotoAlbumRepository, PhotoAlbumItemRepository};
 pub use user::UserRepository;

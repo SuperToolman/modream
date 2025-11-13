@@ -4,6 +4,7 @@ import {useState, useEffect} from "react";
 import {Navbar} from "./components/navbar"
 import {LibraryCar} from "./components/librarycar"
 import {LoadingLibraryCar} from "./components/loading-library-car"
+import {ScanProgressModal} from "./components/scan-progress-modal"
 import {useTheme} from "next-themes";
 import {useIsSSR} from "@react-aria/ssr";
 import {Divider} from "@heroui/divider";
@@ -30,7 +31,12 @@ export default function LibrarySetup() {
     const [libraries, setLibraries] = useState<MediaLibrary[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [creatingLibrary, setCreatingLibrary] = useState<CreatingLibrary | null>(null); // 创建中的媒体库
+    const [creatingLibrary, setCreatingLibrary] = useState<CreatingLibrary | null>(null);
+    const [scanProgressModal, setScanProgressModal] = useState<{
+        isOpen: boolean;
+        mediaLibraryId: number;
+        mediaLibraryTitle: string;
+    } | null>(null); // 创建中的媒体库
 
     // 加载媒体库列表
     useEffect(() => {
@@ -139,18 +145,55 @@ export default function LibrarySetup() {
                     } : null);
                 }
 
+                // 照片类型配置
+                if (data.type === "照片") {
+                    if (data.photoThumbnailMaxWidth !== undefined) {
+                        config.photoThumbnailMaxWidth = data.photoThumbnailMaxWidth;
+                    }
+                    if (data.photoThumbnailMaxHeight !== undefined) {
+                        config.photoThumbnailMaxHeight = data.photoThumbnailMaxHeight;
+                    }
+                    if (data.photoExtractExif !== undefined) {
+                        config.photoExtractExif = data.photoExtractExif;
+                    }
+                    if (data.photoCalculateHash !== undefined) {
+                        config.photoCalculateHash = data.photoCalculateHash;
+                    }
+                    if (data.photoSupportedFormats) {
+                        config.photoSupportedFormats = data.photoSupportedFormats;
+                    }
+                    setCreatingLibrary(prev => prev ? {
+                        ...prev,
+                        message: `正在扫描照片文件夹（支持格式: ${data.photoSupportedFormats || 'JPG,PNG,GIF'}）...`
+                    } : null);
+                }
+
                 // 其他类型也可以添加 metadataStorage
                 if (data.metadataStorage && !config.metadataStorage) {
                     config.metadataStorage = data.metadataStorage;
                 }
 
-                await api.mediaLibraries.createLocalLibrary({
+                const createdLibrary = await api.mediaLibraries.createLocalLibrary({
                     title: data.name,
                     type: data.type as any,
                     paths_json: JSON.stringify(data.folders),
                     source: "local",
                     config: Object.keys(config).length > 0 ? config : undefined,
                 });
+
+                // 如果是照片类型，显示扫描进度对话框
+                if (data.type === "照片" && createdLibrary.id) {
+                    setCreatingLibrary(null); // 清除创建中状态
+                    setScanProgressModal({
+                        isOpen: true,
+                        mediaLibraryId: Number(createdLibrary.id),
+                        mediaLibraryTitle: data.name,
+                    });
+                    // 重新加载媒体库列表
+                    const response = await api.mediaLibraries.getAll();
+                    setLibraries(Array.isArray(response) ? response : []);
+                    return; // 提前返回，不显示成功提示
+                }
             } else {
                 // WebDAV 媒体库
                 // 构建 config 对象（根据媒体类型动态添加配置）
@@ -347,6 +390,22 @@ export default function LibrarySetup() {
                 )}>
                     <p>暂无媒体库，请添加一个新的媒体库</p>
                 </div>
+            )}
+
+            {/* 扫描进度对话框 */}
+            {scanProgressModal && (
+                <ScanProgressModal
+                    isOpen={scanProgressModal.isOpen}
+                    onClose={() => {
+                        setScanProgressModal(null);
+                        // 关闭对话框后重新加载媒体库列表
+                        api.mediaLibraries.getAll().then(response => {
+                            setLibraries(Array.isArray(response) ? response : []);
+                        });
+                    }}
+                    mediaLibraryId={scanProgressModal.mediaLibraryId}
+                    mediaLibraryTitle={scanProgressModal.mediaLibraryTitle}
+                />
             )}
         </div>
     )

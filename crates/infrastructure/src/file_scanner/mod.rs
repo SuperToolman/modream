@@ -3,6 +3,7 @@ mod scan_by_game;
 mod scan_by_manga;
 mod scan_by_video;
 pub mod movie_scaner;
+pub mod photo_scanner;
 
 pub use scan::scan;
 pub use scan_by_game::scan_game_folders;
@@ -15,5 +16,12 @@ pub use movie_scaner::{
     video_scan,
     video_scan_with_language,
     video_scan_with_options,
+};
+
+// 重新导出照片扫描相关的类型和函数
+pub use photo_scanner::{
+    PhotoScanner,
+    photo_scan,
+    photo_scan_with_options,
 };
 
